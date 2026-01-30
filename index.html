@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>مولّد الخطابات - جمعية معرفة</title>
+
+  <!-- Fonts (online). If your environment is offline, replace with self-hosted fonts. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="icon" href="favicon.ico" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
+  <link rel="stylesheet" href="css/app.css" />
+  <link rel="stylesheet" href="css/date-picker.css" />
+  <link rel="stylesheet" href="css/signature.css" />
+</head>
+
+<body data-mobile-view="form">
+  <header class="topbar" aria-label="شريط الأدوات">
+    <div class="topbar__title">
+      <div class="badge">A4</div>
+      <div>
+        <div class="title">مولّد الخطابات</div>
+        <div class="subtitle">جمعية معرفة</div>
+      </div>
+    </div>
+
+    <div class="topbar__actions">
+      <div class="mobileTabs" role="tablist" aria-label="التنقل">
+        <button class="tab is-active" data-view="form" type="button">المدخلات</button>
+        <button class="tab" data-view="preview" type="button">المعاينة</button>
+      </div>
+
+      <button class="btn btn--ghost" id="theme-toggle" type="button">
+        <span class="theme-toggle-icon" aria-hidden="true"></span>
+        <span class="theme-toggle-text"></span>
+      </button>
+
+      <button class="btn" id="btn-save" type="button">حفظ</button>
+      <button class="btn btn--ghost" id="btn-load" type="button">استرجاع</button>
+      <button class="btn btn--primary" id="btn-export" type="button">تصدير PDF</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- FORM -->
+    <section class="panel form" aria-label="المدخلات">
+      <div class="section">
+        <div class="section__title">نوع الخطاب</div>
+
+        <label class="field">
+          <span class="field__label">نوع الخطاب</span>
+          <select id="letterType" class="field__control">
+            <option value="general" selected>خطاب عام</option>
+            <option value="custody">طلب عهدة مالية</option>
+            <option value="close_custody">طلب إغلاق عهدة مالية</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field__label">التاريخ</span>
+          <input id="date" type="hidden" />
+          <input id="dateDisplay" class="field__control md3-text-field__input--date" placeholder=" " readonly />
+          <span class="field__hint">اختر تاريخًا واحدًا وسيظهر هجري/ميلادي تلقائيًا</span>
+        </label>
+      </div>
+
+      <div class="section" id="section-costcenter">
+        <div class="section__title">مركز التكلفة</div>
+
+        <div class="grid2">
+          <label class="field">
+            <span class="field__label">مركز التكلفة (Cost Center)</span>
+            <select id="costCenter" class="field__control"></select>
+            <span class="field__hint">اختيار مركز التكلفة يغني عن الأكواد التفصيلية واسم المشروع</span>
+          </label>
+
+          <label class="field">
+            <span class="field__label">اسم البرنامج</span>
+            <input id="programNameDisplay" class="field__control" readonly />
+            <span class="field__hint">يُحدد تلقائيًا من مركز التكلفة</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section__title">بيانات مقدم الطلب</div>
+
+        <div class="grid2">
+          <label class="field">
+            <span class="field__label">اسم مقدم الطلب</span>
+            <input id="applicantName" class="field__control" placeholder="مثال: م. علي عبدالله العليان" />
+          </label>
+
+          <label class="field">
+            <span class="field__label">المسمى الوظيفي</span>
+            <input id="jobTitle" class="field__control" placeholder="مثال: مدير إدارة البرامج والمشاريع" />
+          </label>
+        </div>
+
+        <label class="field">
+          <span class="field__label">الموضوع</span>
+          <input id="subject" class="field__control" placeholder="يُملأ تلقائيًا ويمكن تعديله" />
+        </label>
+
+        <label class="field">
+          <span class="field__label">تفاصيل الطلب</span>
+          <textarea id="details" class="field__control field__control--textarea" rows="7" placeholder="اكتب التفاصيل هنا..."></textarea>
+        </label>
+      </div>
+
+      <div class="section" id="section-extra">
+        <div class="section__title">بيانات إضافية</div>
+
+        <!-- custody -->
+        <div id="extra-custody" class="extra">
+          <label class="field">
+            <span class="field__label">مبلغ العهدة المطلوب (ريال)</span>
+            <input id="custodyAmount" class="field__control" inputmode="decimal" placeholder="5000" />
+            <span class="field__hint">الحد الأعلى المعتمد 5,000 ريال سعودي</span>
+          </label>
+        </div>
+
+        <!-- close custody -->
+        <div id="extra-close" class="extra">
+          <div class="grid2">
+            <label class="field">
+              <span class="field__label">المبلغ المستخدم (ريال)</span>
+              <input id="usedAmount" class="field__control" inputmode="decimal" placeholder="0" />
+            </label>
+
+            <label class="field">
+              <span class="field__label">المبلغ المتبقي (ريال)</span>
+              <input id="remainingAmount" class="field__control" inputmode="decimal" placeholder="0" />
+            </label>
+          </div>
+
+          <label class="field">
+            <span class="field__label">عدد المشفوعات</span>
+            <input id="attachments" class="field__control" inputmode="numeric" placeholder="0" />
+          </label>
+        </div>
+
+        <!-- general -->
+        <div id="extra-general" class="extra">
+          <label class="field">
+            <span class="field__label">عدد المشفوعات (اختياري)</span>
+            <input id="attachmentsGeneral" class="field__control" inputmode="numeric" placeholder="0" />
+          </label>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section__title">التوقيع</div>
+
+        <div class="grid2">
+          <label class="field">
+            <span class="field__label">طريقة التوقيع</span>
+            <select id="signatureMode" class="field__control">
+              <option value="canvas">توقيع مباشر (Canvas)</option>
+              <option value="upload">رفع صورة التوقيع</option>
+            </select>
+          </label>
+
+          <label class="field" id="signatureUploadField" style="display:none;">
+            <span class="field__label">رفع صورة التوقيع</span>
+            <input id="signatureFile" type="file" accept="image/*" class="field__control" />
+          </label>
+        </div>
+
+        <div id="signatureCanvasWrap" class="signature-canvas-container">
+          <canvas id="signatureCanvas" height="140" tabindex="0" aria-label="لوحة التوقيع"></canvas>
+
+          <div class="signature-toolbar">
+            <div class="signature-toolbar-left">
+              <div class="pen-controls">
+                <div class="pen-control-group pen-size-control">
+                  <span class="pen-control-label">سُمك القلم</span>
+                  <input id="penSize" type="range" min="1" max="8" step="0.5" value="2" />
+                  <span id="penSizeValue" class="pen-size-value">2px</span>
+                </div>
+
+                <div class="pen-control-group pen-color-control">
+                  <span class="pen-control-label">اللون</span>
+                  <input id="penColor" type="color" value="#1d4ed8" />
+                </div>
+              </div>
+
+              <button type="button" class="md3-icon-button-sm icon-undo" id="undoSignature" title="تراجع"></button>
+              <button type="button" class="md3-icon-button-sm icon-redo" id="redoSignature" title="إعادة"></button>
+            </div>
+
+            <div class="signature-toolbar-right signature-actions">
+              <button class="btn btn--ghost" id="clearSignature" type="button">مسح</button>
+            </div>
+          </div>
+
+          <div class="signature-helper-text">
+            <span>💡</span>
+            <span>ارسم التوقيع داخل المربع، وسيظهر في المعاينة مباشرة.</span>
+          </div>
+
+          <div id="aria-live-region" class="sr-only" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <div class="section small-note">
+        <div class="section__title">ملاحظة</div>
+        <div class="muted">
+          للتأكد من عدم ظهور أجزاء من الواجهة في PDF: استخدم زر <b>تصدير PDF</b> داخل الموقع.
+          كما يدعم الموقع Ctrl/⌘ + P بدون ظهور الواجهة (بفضل إعدادات الطباعة).
+        </div>
+      </div>
+    </section>
+
+    <!-- PREVIEW -->
+    <section class="panel preview" aria-label="المعاينة">
+      <div class="preview__header">
+        <div class="preview__title">المعاينة</div>
+        <div class="preview__meta muted">تحديث مباشر • A4</div>
+      </div>
+
+      <div id="printRoot" class="printRoot" aria-label="صفحات الخطاب"></div>
+
+      <div class="preview__footer muted">
+        على الجوال: استخدم زر <b>المعاينة</b> بالأعلى ثم <b>تصدير PDF</b>.
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom navigation (mobile) -->
+  <nav class="bottomTabs" role="tablist" aria-label="التنقل">
+    <button class="tab is-active" data-view="form" type="button">المدخلات</button>
+    <button class="tab" data-view="preview" type="button">المعاينة</button>
+  </nav>
+
+  <script src="js/hijri-converter.js"></script>
+  <script src="js/date-picker.js"></script>
+  <script src="js/signature-enhanced.js"></script>
+  <script src="js/theme.js"></script>
+
+  <script src="js/utils.js"></script>
+  <script src="js/templates.js"></script>
+  <script src="js/pagination.js"></script>
+  <script src="js/print.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
