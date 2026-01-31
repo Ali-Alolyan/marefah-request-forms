@@ -1,4 +1,4 @@
-# مولّد الخطابات - جمعية معرفة (v10)
+# مولّد الخطابات - جمعية معرفة (v11)
 
 مولّد خطابات عربي خفيف (Static Web App) يدعم:
 - **خطاب عام**
@@ -17,7 +17,7 @@
 ### الطريقة الأسهل (مُستحسنة)
 1) ادخل مجلد المشروع:
 ```bash
-cd letter-tool-v10
+cd letter-tool-v11
 ```
 2) شغّل سيرفر محلي:
 ```bash
@@ -28,7 +28,7 @@ python3 -m http.server 8080
 
 ### إذا شغّلت السيرفر من المجلد الأب (Parent)
 افتح:
-- `http://localhost:8080/letter-tool-v10/index.html`
+- `http://localhost:8080/letter-tool-v11/index.html`
 
 ---
 
@@ -37,7 +37,7 @@ python3 -m http.server 8080
 ```bash
 git init
 git add .
-git commit -m "Initial commit (letter-tool v10)"
+git commit -m "Initial commit (letter-tool v11)"
 ```
 ثم اربط المستودع (GitHub) وادفع:
 ```bash
