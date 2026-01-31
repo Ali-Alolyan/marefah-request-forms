@@ -424,12 +424,54 @@ body{
 .codeLabel{ font-weight: 700; color: var(--md-sys-color-on-surface-variant); }
 .codeValue{ font-weight: 800; }
 
+/* Zoom bar (segmented pill) */
+.zoom-bar{
+  display: inline-flex;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--md-sys-color-surface);
+}
+.zoom-bar__btn{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  color: var(--md-sys-color-on-surface);
+  cursor: pointer;
+  transition: background 120ms var(--md-sys-motion-easing-standard);
+  position: relative;
+}
+.zoom-bar__btn:not(:last-child)::after{
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--md-sys-color-outline-variant);
+}
+.zoom-bar__btn:hover{
+  background: var(--md-sys-color-surface-container-low);
+}
+.zoom-bar__btn:active{
+  background: var(--md-sys-color-surface-container);
+}
+.zoom-bar__btn svg{
+  display: block;
+  pointer-events: none;
+}
+
 /* Preview */
 .preview__header{
   display:flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
+  gap: 12px;
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
 }
 .preview__title{ font-weight: 900; font-size: 14px; }
@@ -451,7 +493,9 @@ body{
   position: relative;
   width: 210mm;
   height: 297mm;
-  margin: 0 auto 16px auto;
+  /* Compensate for CSS transform not reducing layout size:
+     when --page-scale < 1, pull the next page up to match the visual bottom. */
+  margin: 0 auto calc(297mm * (var(--page-scale, 1) - 1) + 16px) auto;
   background: #fff;
   box-shadow: 0 12px 30px rgba(2,6,23,0.12);
   border-radius: 8px;
@@ -699,9 +743,15 @@ body{
 /* Show the mobile preview only on phones */
 @media (max-width: 640px){
   #printRoot{ display:none; }
-  .mobilePreview{ display:flex; flex-direction:column; gap: 8px; }
+  .mobilePreview{ display:flex; flex-direction:column; gap: 8px; flex: 1; min-height: 0; }
   .panel.preview{ display:flex !important; flex-direction:column; }
   .preview__footer{ display:none; }
+
+  /* Give preview panel a height so the flex chain (panel → mobilePreview → viewerViewport) works.
+     Without this, viewerViewport (flex:1) collapses to 0 because no ancestor has a defined height. */
+  body[data-mobile-view="preview"] .panel.preview{
+    min-height: calc(100vh - 80px - var(--bottom-tabs-h, 62px));
+  }
 
   /* iOS Safari zooms inputs smaller than 16px */
   .field__control{ font-size: 16px; }

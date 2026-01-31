@@ -171,7 +171,7 @@ function createPageShell(state, pageNum, total){
   // Background: keep a lightweight preview image, but provide a high-res source
   // for printing/PDF engines (especially on iOS).
   bg.src = "assets/letterhead.png";
-  bg.setAttribute('srcset', 'assets/letterhead.png 1x, assets/letterhead-300.png 2x');
+  bg.setAttribute('srcset', 'assets/letterhead.png 1x, assets/letterhead-300.jpg 2x');
   bg.decoding = "async";
   bg.loading = "eager";
   bg.alt = '';

@@ -39,8 +39,8 @@
         <span class="theme-toggle-text"></span>
       </button>
 
-      <button class="btn" id="btn-save" type="button">حفظ</button>
-      <button class="btn btn--ghost" id="btn-load" type="button">استرجاع</button>
+      <button class="btn" id="btn-save" type="button" title="حفظ بيانات النموذج الحالي في المتصفح لاسترجاعها لاحقًا (بدون التوقيع)">حفظ المسودة</button>
+      <button class="btn btn--ghost" id="btn-load" type="button" title="استرجاع آخر مسودة محفوظة من المتصفح">استرجاع المسودة</button>
       <button class="btn btn--primary" id="btn-export" type="button">تصدير PDF</button>
     </div>
   </header>
@@ -213,6 +213,10 @@
           للتأكد من عدم ظهور أجزاء من الواجهة في PDF: استخدم زر <b>تصدير PDF</b> داخل الموقع.
           كما يدعم الموقع Ctrl/⌘ + P بدون ظهور الواجهة (بفضل إعدادات الطباعة).
         </div>
+        <div class="muted" style="margin-top:6px;">
+          <b>حفظ المسودة</b>: يحفظ بيانات النموذج في المتصفح حتى لو أغلقت الصفحة (بدون التوقيع).
+          <b>استرجاع المسودة</b>: يعيد تعبئة النموذج من آخر حفظ. يرجى إعادة التوقيع بعد الاسترجاع.
+        </div>
       </div>
     </section>
 
@@ -224,11 +228,16 @@
           <div class="preview__meta muted">تحديث مباشر • A4</div>
         </div>
 
-        <div class="preview__actions" aria-label="أدوات المعاينة">
-          <button class="iconBtn" id="btn-zoomout" type="button" title="تصغير">−</button>
-          <button class="iconBtn" id="btn-zoomin" type="button" title="تكبير">+</button>
-          <button class="iconBtn" id="btn-zoomfit" type="button" title="ملاءمة">ملاءمة</button>
-          <button class="btn btn--primary" id="btn-export2" type="button">تصدير PDF</button>
+        <div class="zoom-bar" aria-label="أدوات المعاينة">
+          <button class="zoom-bar__btn" id="btn-zoomout" type="button" title="تصغير" aria-label="تصغير">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button class="zoom-bar__btn" id="btn-zoomfit" type="button" title="ملاءمة العرض" aria-label="ملاءمة">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+          </button>
+          <button class="zoom-bar__btn" id="btn-zoomin" type="button" title="تكبير" aria-label="تكبير">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
         </div>
       </div>
 

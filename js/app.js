@@ -413,7 +413,11 @@ function loadDraft(){
     alert('لا توجد مسودة محفوظة.');
     return;
   }
-  const state = JSON.parse(raw);
+  let state;
+  try { state = JSON.parse(raw); } catch(e){
+    alert('تعذّر قراءة المسودة المحفوظة (بيانات تالفة).');
+    return;
+  }
 
   el('letterType').value = state.type || 'general';
 

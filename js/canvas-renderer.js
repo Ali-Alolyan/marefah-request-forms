@@ -245,9 +245,13 @@
         let idx = 0;
         while (idx < lines.length){
           if (!canFit(lh)) newPage();
-          // draw line; if first line and has label, make label bold by drawing two segments
           if (b.label && idx === 0){
-            pageOps.push({ op:'labelvalue', label: b.label, value: b.text, x: layout.contentRight, y, style: { size: bodyPx } });
+            // Extract only the value portion visible on this wrapped line
+            const firstLine = lines[0];
+            const valueOnLine = firstLine.startsWith(b.label)
+              ? firstLine.substring(b.label.length).trimStart()
+              : firstLine;
+            pageOps.push({ op:'labelvalue', label: b.label, value: valueOnLine, x: layout.contentRight, y, style: { size: bodyPx } });
           }else{
             addTextLine(lines[idx], layout.contentRight, y, { size: bodyPx, weight: 400, align:'right' });
           }
@@ -264,10 +268,10 @@
         if (!canFit(blockH)) newPage();
 
         addGapMm(4);
-        // Right side meta
-        pageOps.push({ op:'text', text: `مقدم الطلب: ${b.applicantName}`, x: layout.contentRight, y, style: { size: bodyPx, weight: 400, align:'right' }, labelPrefix: 'مقدم الطلب:' });
+        // Right side meta (label bold, value regular — no overlay)
+        pageOps.push({ op:'labelvalue', label: 'مقدم الطلب:', value: b.applicantName, x: layout.contentRight, y, style: { size: bodyPx } });
         y += lh;
-        pageOps.push({ op:'text', text: `المسمى الوظيفي: ${b.jobTitle}`, x: layout.contentRight, y, style: { size: bodyPx, weight: 400, align:'right' }, labelPrefix: 'المسمى الوظيفي:' });
+        pageOps.push({ op:'labelvalue', label: 'المسمى الوظيفي:', value: b.jobTitle, x: layout.contentRight, y, style: { size: bodyPx } });
         // left side signature box
         const sigBoxW = mmToPx(60, layout.dpi);
         const sigBoxH = mmToPx(28, layout.dpi);
@@ -408,13 +412,16 @@
       const attY = mmToPx(OVERLAY_MM.att.top, dpi);
 
       ctx.fillStyle = '#0b1c2c';
-      ctx.textAlign = 'right';
+      // Dates are LTR numeric text; x coords are left-edge positions (matching CSS left:).
+      ctx.direction = 'ltr';
+      ctx.textAlign = 'left';
       setFont(ctx, layout.fontDatePx, 700);
-      // Dates are already formatted in app.js (numeric), but keep safe fallback.
       ctx.fillText(state.dateHijri || '', dateX_h, dateY_h);
       ctx.fillText(state.dateGregorian || '', dateX_g, dateY_g);
+      ctx.direction = 'rtl';
 
       if (state.attachmentsText){
+        ctx.textAlign = 'left';
         setFont(ctx, mmToPx(cssPxToMm(13), dpi), 700);
         ctx.fillText(state.attachmentsText, attX, attY);
       }
@@ -435,14 +442,6 @@
           ctx.textAlign = st.align || 'right';
           setFont(ctx, st.size || layout.fontBodyPx, st.weight || 400);
           ctx.fillText(op.text || '', op.x, op.y);
-
-          // Bold label prefix if provided (draw on top)
-          if (op.labelPrefix){
-            const label = op.labelPrefix;
-            ctx.textAlign = 'right';
-            setFont(ctx, st.size || layout.fontBodyPx, 700);
-            ctx.fillText(label, op.x, op.y);
-          }
         }else if (op.op === 'labelvalue'){
           // Draw label (bold) + value (regular) on the same line.
           const size = op.style && op.style.size ? op.style.size : layout.fontBodyPx;
