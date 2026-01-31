@@ -160,6 +160,9 @@ function isOverflowing(el){
 }
 
 function createPageShell(state, pageNum, total){
+  const wrap = document.createElement('div');
+  wrap.className = 'pageWrap';
+
   const page = document.createElement('div');
   page.className = 'a4-page';
 
@@ -192,5 +195,6 @@ function createPageShell(state, pageNum, total){
   pn.textContent = `صفحة ${formatNumberArabic(pageNum)} من ${formatNumberArabic(total)}`;
   page.appendChild(pn);
 
-  return page;
+  wrap.appendChild(page);
+  return wrap;
 }

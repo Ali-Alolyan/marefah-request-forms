@@ -88,7 +88,14 @@ class DualCalendarPicker {
     this.container.className = 'dual-calendar-picker';
     this.container.style.display = 'none';
 
+    // Backdrop (used mainly on mobile to center the picker and prevent awkward zoom/scroll)
+    this.backdrop = document.createElement('div');
+    this.backdrop.className = 'dcp-backdrop';
+    this.backdrop.style.display = 'none';
+    this.backdrop.addEventListener('click', () => this.close());
+
     // Append to body to avoid z-index stacking context issues
+    document.body.appendChild(this.backdrop);
     document.body.appendChild(this.container);
 
     // Render initial calendar
@@ -498,12 +505,30 @@ class DualCalendarPicker {
     this.isOpen = true;
     this.container.style.display = 'block';
 
+    const isMobile = window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
+    if (isMobile) {
+      this.backdrop.style.display = 'block';
+      this.container.classList.add('is-centered');
+      this.container.style.top = '50%';
+      this.container.style.left = '50%';
+      this.container.style.right = 'auto';
+      this.container.style.transform = 'translate(-50%, -50%)';
+      // Prevent background scroll while the picker is open
+      document.documentElement.classList.add('dcp-open');
+    } else {
+      this.container.classList.remove('is-centered');
+      this.container.style.left = 'auto';
+      this.container.style.transform = 'none';
+    }
+
     // Position the picker using fixed positioning relative to input
     const inputRect = this.displayInput.getBoundingClientRect();
 
-    // Position below the input
-    this.container.style.top = (inputRect.bottom + 8) + 'px';
-    this.container.style.right = (window.innerWidth - inputRect.right) + 'px';
+    // Desktop: position below the input
+    if (!(window.matchMedia && window.matchMedia('(max-width: 640px)').matches)) {
+      this.container.style.top = (inputRect.bottom + 8) + 'px';
+      this.container.style.right = (window.innerWidth - inputRect.right) + 'px';
+    }
 
     // Set calendar to show selected date's month/year
     if (this.selectedDate) {
@@ -534,6 +559,8 @@ class DualCalendarPicker {
   close() {
     this.isOpen = false;
     this.container.style.display = 'none';
+    if (this.backdrop) this.backdrop.style.display = 'none';
+    document.documentElement.classList.remove('dcp-open');
   }
 
   /**
@@ -542,6 +569,9 @@ class DualCalendarPicker {
   destroy() {
     if (this.container) {
       this.container.remove();
+    }
+    if (this.backdrop) {
+      this.backdrop.remove();
     }
   }
 }

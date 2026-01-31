@@ -107,7 +107,7 @@ class HijriConverter {
     month = e < 14 ? e - 1 : e - 13;
     year = month > 2 ? c - 4716 : c - 4715;
 
-    return new Date(year, month - 1, day);
+    return new Date(year, month - 1, day, 12, 0, 0, 0);
   }
 
   /**

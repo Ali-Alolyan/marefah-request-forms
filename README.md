@@ -1,4 +1,4 @@
-# مولّد الخطابات - جمعية معرفة (v14)
+# مولّد الخطابات - جمعية معرفة (v16)
 
 مولّد خطابات عربي خفيف (Static Web App) يدعم:
 - **خطاب عام**
@@ -17,7 +17,7 @@
 ### الطريقة الأسهل (مُستحسنة)
 1) ادخل مجلد المشروع:
 ```bash
-cd letter-tool-v14
+cd letter-tool-v16
 ```
 2) شغّل سيرفر محلي:
 ```bash
@@ -28,7 +28,7 @@ python3 -m http.server 8080
 
 ### إذا شغّلت السيرفر من المجلد الأب (Parent)
 افتح:
-- `http://localhost:8080/letter-tool-v14/index.html`
+- `http://localhost:8080/letter-tool-v16/index.html`
 
 ---
 
@@ -37,7 +37,7 @@ python3 -m http.server 8080
 ```bash
 git init
 git add .
-git commit -m "Initial commit (letter-tool v14)"
+git commit -m "Initial commit (letter-tool v16)"
 ```
 ثم اربط المستودع (GitHub) وادفع:
 ```bash
@@ -57,17 +57,14 @@ git push -u origin main
 
 ## تصدير PDF (جودة عالية)
 
-- زر **تصدير PDF** يفتح نافذة طباعة مخصصة تحتوي على صفحات الخطاب فقط (بدون واجهة الموقع) لضمان نتيجة ثابتة بين Safari/Chrome على الجوال والكمبيوتر.
+- زر **تصدير PDF** يولّد ملف PDF مباشرة **بدون Print/Popups** (رندر Canvas + خط مضمّن)؛ والنتيجة تكون ثابتة على:
+  - Safari/Chrome (Mac)
+  - Safari/Chrome (iPhone)
 
-> ملاحظة: بعض المتصفحات قد تُظهر خيار **Headers & Footers** (مثل عنوان URL/الوقت) داخل شاشة الطباعة. عطّل هذا الخيار للحصول على مخرج مطابق للكليشة.
-
-### إعدادات الطباعة الموصى بها (للـكمبيوتر)
-عند Save as PDF تأكد من:
-- Paper size: **A4**
-- Margins: **None** (أو أدنى قيمة)
-- Scale: **100%** (لا تستخدم Fit / Shrink)
-- Disable: **Headers & Footers**
-- Enable: **Background graphics** (حتى تظهر الكليشة كاملة)
+### ملاحظات مهمة
+- التصدير لا يعتمد على إعدادات الطباعة، لذلك لا يظهر أي جزء من واجهة الموقع داخل PDF.
+- لا توجد مكتبات خارجية مطلوبة (يعمل Offline بعد فتح الصفحة).
+- على الجوال: إذا كانت الذاكرة منخفضة، قد يخفض التطبيق الدقة تلقائياً لتجنّب التعطّل.
 
 ---
 
@@ -93,9 +90,11 @@ git push -u origin main
 - `assets/letterhead.png` (خفيفة)
 
 الصورة عالية الدقة للطباعة:
-- `assets/letterhead-300.png` (تُستخدم تلقائياً عبر srcset)
+- `assets/letterhead-300.jpg` (تُستخدم تلقائياً عبر srcset)
 
 **مستحسن** أن تكون بدقة 300 DPI (A4 = 2482×3510 px) لضمان PDF نظيف.
+
+بالنسبة للجوال، يوجد ملف متوسط: `assets/letterhead-240.jpg` لتسريع الرندر عند الحاجة.
 
 ## الخط (Fonts)
 الخط مضمّن محلياً داخل:

@@ -18,6 +18,33 @@
   font-family: var(--md-sys-typescale-body-medium-font);
 }
 
+/* When the picker is open (especially on mobile), prevent background scroll */
+html.dcp-open, html.dcp-open body {
+  overflow: hidden;
+}
+
+/* Backdrop for mobile modal */
+.dcp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+/* Center the picker on small screens */
+.dual-calendar-picker.is-centered {
+  top: 50% !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translate(-50%, -50%) !important;
+  max-width: min(92vw, 420px) !important;
+  width: min(92vw, 420px) !important;
+  max-height: 84vh;
+  overflow: auto;
+}
+
 /* Header with calendar toggle and close button */
 .dcp-header {
   display: flex;
@@ -298,6 +325,11 @@
   .dcp-day {
     min-height: 36px;
     font-size: var(--md-sys-typescale-body-small-size);
+  }
+
+  /* Prevent iOS Safari from zooming inputs (<16px) */
+  .md3-text-field__input--date {
+    font-size: 16px !important;
   }
 }
 

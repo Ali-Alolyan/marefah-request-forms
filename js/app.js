@@ -2,6 +2,8 @@
 
 const STORAGE_KEY = 'marefah-letter-draft-v4';
 
+
+let manualZoom = 1;
 // Initialize global converter for date-picker.js
 window.hijriConverter = new HijriConverter();
 
@@ -151,8 +153,44 @@ function bindUI(){
   el('btn-save').addEventListener('click', saveDraft);
   el('btn-load').addEventListener('click', loadDraft);
 
-  // Export PDF
-  el('btn-export').addEventListener('click', () => exportPDF());
+  // Export PDF (both buttons)
+  const doExport = () => {
+    if (window.exportPDF) return window.exportPDF();
+    window.print();
+  };
+  const b1 = el('btn-export');
+  if (b1) b1.addEventListener('click', doExport);
+  const b2 = el('btn-export2');
+  if (b2) b2.addEventListener('click', doExport);
+
+  // Preview zoom controls
+  const zin = el('btn-zoomin');
+  const zout = el('btn-zoomout');
+  const zfit = el('btn-zoomfit');
+  if (zin) zin.addEventListener('click', () => {
+    if (window.mobilePreview && window.mobilePreview.isEnabled()) {
+      window.mobilePreview.zoomIn();
+    } else {
+      manualZoom = Math.min(2, manualZoom * 1.12);
+      applyResponsiveScale();
+    }
+  });
+  if (zout) zout.addEventListener('click', () => {
+    if (window.mobilePreview && window.mobilePreview.isEnabled()) {
+      window.mobilePreview.zoomOut();
+    } else {
+      manualZoom = Math.max(0.35, manualZoom / 1.12);
+      applyResponsiveScale();
+    }
+  });
+  if (zfit) zfit.addEventListener('click', () => {
+    if (window.mobilePreview && window.mobilePreview.isEnabled()) {
+      window.mobilePreview.fit();
+    } else {
+      manualZoom = 1;
+      applyResponsiveScale();
+    }
+  });
 
   // Improve mobile keyboard UX: avoid accidental zoom on iOS
   document.addEventListener('gesturestart', (e) => e.preventDefault?.(), { passive:false });
@@ -168,6 +206,10 @@ function bindMobileTabs(){
 
     // When opening preview on mobile, recalc scale after layout settles.
     if (view === 'preview'){
+      // Render mobile canvas preview immediately when the user opens the preview tab.
+      if (window.mobilePreview && window.mobilePreview.isEnabled()){
+        requestAnimationFrame(() => window.mobilePreview.renderNow());
+      }
       requestAnimationFrame(() => setTimeout(applyResponsiveScale, 20));
     }
   };
@@ -311,6 +353,15 @@ function refresh(){
 
   const state = collectState();
 
+  // Always keep the mobile canvas preview (pinch-zoom) in sync.
+  if (window.mobilePreview) window.mobilePreview.schedule(state);
+
+  // On phones, the DOM preview is hidden and we use the canvas viewer instead.
+  const isPhone = window.matchMedia && window.matchMedia('(max-width: 640px)').matches;
+  if (isPhone && window.mobilePreview && window.mobilePreview.isEnabled()){
+    return;
+  }
+
   // Render blocks
   const blocks = renderLetterBlocks(state);
 
@@ -341,7 +392,8 @@ function applyResponsiveScale(){
   // offsetWidth is the untransformed layout width (important when transform scale is set).
   const baseWidth = page.offsetWidth || 1;
   const available = Math.max(240, root.clientWidth - 8);
-  const scale = Math.min(1, available / baseWidth);
+  const fitScale = Math.min(1, available / baseWidth);
+  const scale = Math.max(0.35, Math.min(2, fitScale * (manualZoom || 1)));
 
   document.documentElement.style.setProperty('--page-scale', String(Number(scale.toFixed(4))));
 }
@@ -412,5 +464,8 @@ function applySignatureModeUI(){
   if (uploadField) uploadField.style.display = mode === 'upload' ? 'block' : 'none';
   if (canvasWrap) canvasWrap.style.display = mode === 'canvas' ? 'block' : 'none';
 }
+
+// Expose for print.js
+window.collectState = collectState;
 
 document.addEventListener('DOMContentLoaded', init);

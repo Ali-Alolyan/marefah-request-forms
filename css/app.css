@@ -623,3 +623,86 @@ body{
     print-color-adjust: exact !important;
   }
 }
+
+
+
+/* -----------------------------
+   Mobile Preview Viewer (v16)
+   ----------------------------- */
+
+.mobilePreview{ display:none; }
+
+.viewerViewport{
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.8);
+  overflow: hidden;
+  touch-action: none; /* enable custom pinch/pan */
+  overscroll-behavior: contain;
+}
+:root[data-theme="dark"] .viewerViewport{
+  background: rgba(7,10,18,0.55);
+}
+
+.viewerStage{
+  position:absolute;
+  top:0; left:0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+#viewerImg{
+  display:block;
+  max-width:none; /* we scale via transform */
+  height:auto;
+  user-select:none;
+  -webkit-user-drag:none;
+  pointer-events:none; /* gestures handled on viewport */
+  box-shadow: 0 8px 24px rgba(2,6,23,0.18);
+  border-radius: 10px;
+}
+
+.viewerLoading{
+  position:absolute;
+  inset:0;
+  display:none;
+  place-items:center;
+  gap: 10px;
+  background: rgba(255,255,255,0.75);
+  color: var(--md-sys-color-on-surface);
+  font-weight: 700;
+}
+:root[data-theme="dark"] .viewerLoading{
+  background: rgba(0,0,0,0.35);
+}
+
+.viewerPager{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 10px;
+  padding: 10px 2px 0;
+}
+.viewerIndicator{
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.viewerHint{
+  padding: 6px 2px 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* Show the mobile preview only on phones */
+@media (max-width: 640px){
+  #printRoot{ display:none; }
+  .mobilePreview{ display:flex; flex-direction:column; gap: 8px; }
+  .panel.preview{ display:flex !important; flex-direction:column; }
+  .preview__footer{ display:none; }
+
+  /* iOS Safari zooms inputs smaller than 16px */
+  .field__control{ font-size: 16px; }
+}

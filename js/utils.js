@@ -14,10 +14,12 @@ function padLeft(num, size){
 }
 
 function formatNumberArabic(n){
+  // Return Western (English) digits while keeping grouping
   const num = Number(n);
   if (!Number.isFinite(num)) return '';
-  return new Intl.NumberFormat('ar-SA').format(num);
+  return new Intl.NumberFormat('en-US', { useGrouping: true, maximumFractionDigits: 0 }).format(num);
 }
+
 
 function parseAmount(str){
   if (str == null) return null;

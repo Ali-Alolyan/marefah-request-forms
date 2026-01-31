@@ -219,11 +219,43 @@
     <!-- PREVIEW -->
     <section class="panel preview" aria-label="المعاينة">
       <div class="preview__header">
-        <div class="preview__title">المعاينة</div>
-        <div class="preview__meta muted">تحديث مباشر • A4</div>
+        <div>
+          <div class="preview__title">المعاينة</div>
+          <div class="preview__meta muted">تحديث مباشر • A4</div>
+        </div>
+
+        <div class="preview__actions" aria-label="أدوات المعاينة">
+          <button class="iconBtn" id="btn-zoomout" type="button" title="تصغير">−</button>
+          <button class="iconBtn" id="btn-zoomin" type="button" title="تكبير">+</button>
+          <button class="iconBtn" id="btn-zoomfit" type="button" title="ملاءمة">ملاءمة</button>
+          <button class="btn btn--primary" id="btn-export2" type="button">تصدير PDF</button>
+        </div>
       </div>
 
       <div id="printRoot" class="printRoot" aria-label="صفحات الخطاب"></div>
+
+      <div id="mobilePreview" class="mobilePreview" aria-label="معاينة الجوال">
+        <div class="viewerViewport" id="viewerViewport" aria-label="عرض الصفحة">
+          <div class="viewerStage" id="viewerStage">
+            <img id="viewerImg" alt="معاينة الصفحة"/>
+          </div>
+          <div id="viewerLoading" class="viewerLoading" aria-live="polite" aria-label="جاري تحديث المعاينة">
+            <div class="spinner"></div>
+            <div>جاري تحديث المعاينة…</div>
+          </div>
+        </div>
+
+        <div class="viewerPager" aria-label="التنقل بين الصفحات">
+          <button class="btn btn--ghost" id="viewerPrev" type="button">السابق</button>
+          <div id="viewerIndicator" class="viewerIndicator">1 / 1</div>
+          <button class="btn btn--ghost" id="viewerNext" type="button">التالي</button>
+        </div>
+
+        <div class="viewerHint muted">
+          اسحب يمينًا/يسارًا للتنقل بين الصفحات • قرّب/بعّد بإصبعين للتكبير
+        </div>
+      </div>
+
 
       <div class="preview__footer muted">
         على الجوال: استخدم زر <b>المعاينة</b> بالأعلى ثم <b>تصدير PDF</b>.
@@ -240,7 +272,6 @@
   <!-- PDF export libs (for iOS parity). Used by js/print.js. -->
   <!-- PDF export libs are loaded on-demand (see js/print.js) to improve reliability on iOS -->
 
-  </nav>
 
   <script src="js/hijri-converter.js"></script>
   <script src="js/date-picker.js"></script>
@@ -250,7 +281,9 @@
   <script src="js/utils.js"></script>
   <script src="js/templates.js"></script>
   <script src="js/pagination.js"></script>
+  <script src="js/canvas-renderer.js"></script>
   <script src="js/print.js"></script>
+  <script src="js/mobile-preview.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
