@@ -11,6 +11,76 @@
 
 const A4_PX = { w: 794, h: 1123 };
 
+// --- On-demand library loader (improves Safari/Chrome parity on iPhone + fixes CDN typos) ---
+function loadScriptOnce(src){
+  return new Promise((resolve, reject) => {
+    // Avoid duplicating the same script
+    if (document.querySelector(`script[data-src="${src}"]`)){
+      // Give it a tick in case it's still loading
+      setTimeout(resolve, 0);
+      return;
+    }
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = src;
+    s.dataset.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(s);
+  });
+}
+
+async function ensureExportLibs(){
+  // Already available
+  if (window.html2canvas && window.jspdf && window.jspdf.jsPDF) return true;
+
+  const targets = [
+    {
+      name: 'html2canvas',
+      ok: () => !!window.html2canvas,
+      urls: [
+        // Local (recommended)
+        'js/vendor/html2canvas.min.js',
+        // jsDelivr
+        'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
+        // unpkg
+        'https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js',
+        // cdnjs
+        'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+      ],
+    },
+    {
+      name: 'jsPDF',
+      ok: () => !!(window.jspdf && window.jspdf.jsPDF),
+      urls: [
+        // Local (recommended)
+        'js/vendor/jspdf.umd.min.js',
+        'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+        'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+      ],
+    },
+  ];
+
+  for (const t of targets){
+    if (t.ok()) continue;
+    let loaded = false;
+    for (const url of t.urls){
+      try {
+        await loadScriptOnce(url);
+        // Some browsers need a microtask tick for globals to appear
+        await new Promise(r => setTimeout(r, 0));
+        if (t.ok()) { loaded = true; break; }
+      } catch (e){
+        // try next url
+      }
+    }
+    if (!loaded) return false;
+  }
+
+  return !!(window.html2canvas && window.jspdf && window.jspdf.jsPDF);
+}
+
 function isIOS(){
   const ua = navigator.userAgent || '';
   const iOSDevice = /iPad|iPhone|iPod/i.test(ua);
@@ -55,11 +125,9 @@ async function waitForImages(root){
 function buildPrintHtml(pagesHtml, isMobile){
   const baseHref = location.href.replace(/[#?].*$/, '').replace(/\/[^\/]*$/, '/');
 
-  const fontLinks = `
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  `;
+  // Fonts are bundled locally (assets/fonts) and registered via @font-face in css/app.css.
+  // This keeps export working offline and ensures identical rendering across browsers.
+  const fontLinks = ``;
 
   const cssLinks = ['css/app.css'].map(href => `<link rel="stylesheet" href="${href}">`).join('\n');
 
@@ -114,9 +182,16 @@ function buildPrintHtml(pagesHtml, isMobile){
 }
 
 async function exportViaCanvasPDF(){
-  // Require libs
-  if (!window.html2canvas || !window.jspdf || !window.jspdf.jsPDF){
-    alert('تعذّر تحميل مكتبات التصدير. تأكد من الاتصال بالإنترنت ثم أعد المحاولة.');
+  // Ensure libs (try multiple CDNs)
+  const libsOk = await ensureExportLibs();
+  if (!libsOk){
+    alert(
+      'تعذّر تحميل مكتبات التصدير.\n' +
+      '• تأكد من اتصال الإنترنت\n' +
+      '• أو جرّب شبكة أخرى (قد يكون CDN محجوبًا)\n' +
+      '• أو عطّل Content Blocker مؤقتًا\n\n' +
+      'ملاحظة: فتح تبويب جديد لا يعني أن روابط مكتبات التصدير الخارجية تعمل.'
+    );
     return false;
   }
 
@@ -155,6 +230,8 @@ async function exportViaCanvasPDF(){
     c.style.width = `${A4_PX.w}px`;
     c.style.height = `${A4_PX.h}px`;
     c.style.boxShadow = 'none';
+    c.style.borderRadius = '0';
+    c.style.overflow = 'hidden';
     stage.appendChild(c);
   });
 
@@ -164,9 +241,14 @@ async function exportViaCanvasPDF(){
     await waitForFonts();
     await waitForImages(stage);
 
-    // Scale: tradeoff between quality and memory. iPhone can handle ~2–2.5 for A4.
+    // Scale strategy:
+    // 1) Try a higher scale for sharper output.
+    // 2) If the device/browser runs out of memory (common on iOS), retry once with a safer scale.
+    const ua = navigator.userAgent || '';
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
     const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 2));
-    const scale = Math.min(2.5, Math.max(2, dpr));
+    const scaleHi = isMobile ? Math.min(2.8, Math.max(2.4, dpr * 1.2)) : 3.0;
+    const scaleLo = isMobile ? 2.2 : 2.6;
 
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4', compress: true });
@@ -177,15 +259,29 @@ async function exportViaCanvasPDF(){
       const pageEl = stagePages[i];
 
       // html2canvas renders the element as a bitmap; this avoids iOS print engine quirks.
-      const canvas = await window.html2canvas(pageEl, {
-        scale,
-        backgroundColor: '#ffffff',
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-        windowWidth: A4_PX.w,
-        windowHeight: A4_PX.h,
-      });
+      let canvas = null;
+      try {
+        canvas = await window.html2canvas(pageEl, {
+          scale: scaleHi,
+          backgroundColor: '#ffffff',
+          useCORS: true,
+          allowTaint: false,
+          logging: false,
+          windowWidth: A4_PX.w,
+          windowHeight: A4_PX.h,
+        });
+      } catch (e){
+        // Retry with a safer scale
+        canvas = await window.html2canvas(pageEl, {
+          scale: scaleLo,
+          backgroundColor: '#ffffff',
+          useCORS: true,
+          allowTaint: false,
+          logging: false,
+          windowWidth: A4_PX.w,
+          windowHeight: A4_PX.h,
+        });
+      }
 
       const imgData = canvas.toDataURL('image/jpeg', 0.98);
 
@@ -257,13 +353,13 @@ function exportViaPrintWindow(){
 async function exportPDF(){
   setExportButtonBusy(true);
   try {
-    // On iOS, prefer canvas PDF to get Safari/Chrome parity.
-    if (isIOS()){
-      const ok = await exportViaCanvasPDF();
-      if (ok) return;
-      // fallback
+    // Prefer pixel-perfect export via canvas->PDF to avoid browser print
+    // headers/footers (especially on iOS Safari/Chrome).
+    const ok = await exportViaCanvasPDF();
+    if (!ok){
+      // Fallback: native print engine
+      exportViaPrintWindow();
     }
-    exportViaPrintWindow();
   } finally {
     setExportButtonBusy(false);
   }

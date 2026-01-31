@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>مولّد الخطابات - جمعية معرفة</title>
 
-  <!-- Fonts (online). If your environment is offline, replace with self-hosted fonts. -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Local fonts (offline-friendly). Files live in assets/fonts/ -->
+  <link rel="preload" as="font" type="font/ttf" href="assets/fonts/IBMPlexSansArabic-Regular.ttf" crossorigin>
+  <link rel="preload" as="font" type="font/ttf" href="assets/fonts/IBMPlexSansArabic-Medium.ttf" crossorigin>
+  <link rel="preload" as="font" type="font/ttf" href="assets/fonts/IBMPlexSansArabic-Bold.ttf" crossorigin>
 
   <link rel="icon" href="favicon.ico" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
@@ -238,8 +238,7 @@
   </nav>
 
   <!-- PDF export libs (for iOS parity). Used by js/print.js. -->
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas.4.1/dist/html2canvas.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf.5.1/dist/jspdf.umd.min.js"></script>
+  <!-- PDF export libs are loaded on-demand (see js/print.js) to improve reliability on iOS -->
 
   </nav>
 

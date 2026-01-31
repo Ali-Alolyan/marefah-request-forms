@@ -165,8 +165,10 @@ function createPageShell(state, pageNum, total){
 
   const bg = document.createElement('img');
   bg.className = 'a4-bg';
-  // Use SVG for print quality
+  // Background: keep a lightweight preview image, but provide a high-res source
+  // for printing/PDF engines (especially on iOS).
   bg.src = "assets/letterhead.png";
+  bg.setAttribute('srcset', 'assets/letterhead.png 1x, assets/letterhead-300.png 2x');
   bg.decoding = "async";
   bg.loading = "eager";
   bg.alt = '';
