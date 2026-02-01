@@ -28,8 +28,9 @@
     el.style.display = show ? 'grid' : 'none';
   }
 
-  function toast(msg){
-    // lightweight, non-blocking
+  function toast(msg, variant){
+    if (window.showToast){ window.showToast(msg, variant || 'success'); return; }
+    // Fallback: lightweight, non-blocking
     const t = document.createElement('div');
     t.textContent = msg;
     t.style.cssText = 'position:fixed;left:12px;right:12px;bottom:88px;z-index:99999;background:rgba(17,24,39,.92);color:#fff;padding:12px 14px;border-radius:14px;font-size:14px;line-height:1.4;box-shadow:0 10px 30px rgba(0,0,0,.25);text-align:center;';
@@ -62,7 +63,7 @@
       const state = (window.collectState && window.collectState()) || null;
       if (!state){
         showExportSpinner(false);
-        alert('تعذر جمع بيانات الخطاب.');
+        toast('تعذر جمع بيانات الخطاب.', 'error');
         return;
       }
 
@@ -111,7 +112,7 @@
       toast('تم تجهيز ملف PDF');
     }catch(err){
       console.error(err);
-      alert('تعذر تصدير PDF. جرّب مرة أخرى.');
+      toast('تعذر تصدير PDF. جرّب مرة أخرى.', 'error');
     }finally{
       showExportSpinner(false);
     }

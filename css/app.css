@@ -756,3 +756,271 @@ body{
   /* iOS Safari zooms inputs smaller than 16px */
   .field__control{ font-size: 16px; }
 }
+
+
+/* -------------------------------------------------------
+   Toast / Snackbar Notifications
+-------------------------------------------------------- */
+.toast-container{
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+@media (max-width: 768px){
+  .toast-container{
+    bottom: calc(var(--bottom-tabs-h, 62px) + 24px + env(safe-area-inset-bottom));
+  }
+}
+.toast{
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  opacity: 0;
+  transform: translateY(16px) scale(0.96);
+  animation: toast-in var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-emphasized) forwards;
+  white-space: nowrap;
+}
+.toast.toast--dismiss{
+  animation: toast-out var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-standard) forwards;
+}
+.toast--success{
+  background: #166534;
+  color: #f0fdf4;
+}
+.toast--error{
+  background: #991b1b;
+  color: #fef2f2;
+}
+:root[data-theme="dark"] .toast--success{
+  background: #15803d;
+}
+:root[data-theme="dark"] .toast--error{
+  background: #b91c1c;
+}
+@keyframes toast-in{
+  to{ opacity:1; transform: translateY(0) scale(1); }
+}
+@keyframes toast-out{
+  from{ opacity:1; transform: translateY(0) scale(1); }
+  to{ opacity:0; transform: translateY(-8px) scale(0.96); }
+}
+
+
+/* -------------------------------------------------------
+   Button Focus & Hover Improvements
+-------------------------------------------------------- */
+.btn:focus-visible{
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+.btn--ghost:hover{
+  background: var(--md-sys-color-surface-container-low);
+}
+.btn--ghost:focus-visible{
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 2px;
+}
+.btn--primary:hover{
+  filter: none;
+  background: color-mix(in srgb, var(--md-sys-color-primary) 88%, white);
+}
+.btn--primary:focus-visible{
+  outline: 2px solid var(--md-sys-color-on-primary-container);
+  outline-offset: 2px;
+}
+
+
+/* -------------------------------------------------------
+   Custom Select Dropdown Styling
+-------------------------------------------------------- */
+select.field__control{
+  appearance: none;
+  -webkit-appearance: none;
+  padding-inline-end: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%2364748b' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 12px center;
+  cursor: pointer;
+}
+:root[data-theme="dark"] select.field__control{
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%2394a3b8' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+
+/* -------------------------------------------------------
+   Readonly Field Visual Distinction
+-------------------------------------------------------- */
+.field__control:read-only,
+.field__control[readonly]{
+  background: var(--md-sys-color-surface-container-low);
+  border-style: dashed;
+  cursor: default;
+  color: var(--md-sys-color-on-surface-variant);
+}
+:root[data-theme="dark"] .field__control:read-only,
+:root[data-theme="dark"] .field__control[readonly]{
+  background: var(--md-sys-color-surface-container);
+}
+/* Exclude the date display from readonly styling since it opens a picker */
+.md3-text-field__input--date[readonly]{
+  border-style: solid;
+  cursor: pointer;
+  color: var(--md-sys-color-on-surface);
+  background: var(--md-sys-color-surface);
+}
+:root[data-theme="dark"] .md3-text-field__input--date[readonly]{
+  background: var(--md-sys-color-surface-bright);
+}
+
+
+/* -------------------------------------------------------
+   Smooth Section Transitions
+-------------------------------------------------------- */
+.section-animated{
+  overflow: hidden;
+  transition: max-height var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-emphasized),
+              opacity var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-emphasized);
+  max-height: 600px;
+  opacity: 1;
+}
+.section-animated.is-hidden{
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin: 0;
+  border: none;
+}
+
+
+/* -------------------------------------------------------
+   Global prefers-reduced-motion
+-------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce){
+  *,
+  *::before,
+  *::after{
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+/* -------------------------------------------------------
+   Input Placeholder Styling
+-------------------------------------------------------- */
+.field__control::placeholder{
+  color: var(--md-sys-color-outline);
+  opacity: 1;
+}
+:root[data-theme="dark"] .field__control::placeholder{
+  color: var(--md-sys-color-outline);
+}
+
+
+/* -------------------------------------------------------
+   Section Visual Hierarchy
+-------------------------------------------------------- */
+.section{
+  padding: 14px 12px;
+}
+.section__title{
+  position: relative;
+  padding-inline-start: 10px;
+}
+.section__title::before{
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--md-sys-color-primary);
+}
+.field + .field{
+  margin-top: 10px;
+}
+.grid2 + .field,
+.field + .grid2{
+  margin-top: 10px;
+}
+
+
+/* -------------------------------------------------------
+   Topbar Responsive Polish (900-1100px)
+-------------------------------------------------------- */
+@media (max-width: 1100px) and (min-width: 901px){
+  .topbar__actions{
+    gap: 6px;
+  }
+  .topbar__actions .btn{
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+}
+@media (max-width: 900px){
+  .topbar{
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .topbar__actions{
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+
+/* -------------------------------------------------------
+   A4 Page Preview Hover Elevation
+-------------------------------------------------------- */
+.a4-page{
+  transition: box-shadow var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-standard);
+}
+.a4-page:hover{
+  box-shadow: 0 16px 40px rgba(2,6,23,0.18);
+}
+
+
+/* -------------------------------------------------------
+   .muted Dark Mode Readability
+-------------------------------------------------------- */
+:root[data-theme="dark"] .muted{
+  color: var(--md-sys-color-on-surface-variant);
+  opacity: 0.92;
+}
+
+
+/* -------------------------------------------------------
+   Signature Helper Icon (replace emoji with CSS)
+-------------------------------------------------------- */
+.sig-helper-icon{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+  line-height: 1;
+}

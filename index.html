@@ -165,7 +165,7 @@
             </select>
           </label>
 
-          <label class="field" id="signatureUploadField" style="display:none;">
+          <label class="field section-animated is-hidden" id="signatureUploadField">
             <span class="field__label">رفع صورة التوقيع</span>
             <input id="signatureFile" type="file" accept="image/*" class="field__control" />
           </label>
@@ -199,7 +199,7 @@
           </div>
 
           <div class="signature-helper-text">
-            <span>💡</span>
+            <span class="sig-helper-icon" aria-hidden="true">؟</span>
             <span>ارسم التوقيع داخل المربع، وسيظهر في المعاينة مباشرة.</span>
           </div>
 
@@ -281,6 +281,9 @@
   <!-- PDF export libs (for iOS parity). Used by js/print.js. -->
   <!-- PDF export libs are loaded on-demand (see js/print.js) to improve reliability on iOS -->
 
+
+  <!-- Toast notification container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
   <script src="js/hijri-converter.js"></script>
   <script src="js/date-picker.js"></script>

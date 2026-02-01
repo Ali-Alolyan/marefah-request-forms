@@ -2,6 +2,24 @@
 
 const STORAGE_KEY = 'marefah-letter-draft-v4';
 
+/* -------------------------------------------------------
+   Toast Notification System
+-------------------------------------------------------- */
+function showToast(message, variant = 'success'){
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = `toast toast--${variant}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  const dismiss = () => {
+    toast.classList.add('toast--dismiss');
+    toast.addEventListener('animationend', () => toast.remove(), { once: true });
+  };
+  setTimeout(dismiss, 3000);
+}
+
 
 let manualZoom = 1;
 // Initialize global converter for date-picker.js
@@ -259,9 +277,21 @@ function readFileAsDataUrl(file){
 }
 
 function toggleExtraSections(type){
-  el('extra-custody').style.display = type === 'custody' ? 'block' : 'none';
-  el('extra-close').style.display = type === 'close_custody' ? 'block' : 'none';
-  el('extra-general').style.display = type === 'general' ? 'block' : 'none';
+  toggleAnimated(el('extra-custody'), type === 'custody');
+  toggleAnimated(el('extra-close'), type === 'close_custody');
+  toggleAnimated(el('extra-general'), type === 'general');
+}
+
+function toggleAnimated(node, show){
+  if (!node) return;
+  if (!node.classList.contains('section-animated')){
+    node.classList.add('section-animated');
+  }
+  if (show){
+    node.classList.remove('is-hidden');
+  } else {
+    node.classList.add('is-hidden');
+  }
 }
 
 function computeCostCenter(){
@@ -404,18 +434,18 @@ function saveDraft(){
   // Store without signature data for privacy/performance
   const safe = { ...state, signatureDataUrl: null };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
-  alert('تم حفظ المسودة.');
+  showToast('تم حفظ المسودة.', 'success');
 }
 
 function loadDraft(){
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw){
-    alert('لا توجد مسودة محفوظة.');
+    showToast('لا توجد مسودة محفوظة.', 'error');
     return;
   }
   let state;
   try { state = JSON.parse(raw); } catch(e){
-    alert('تعذّر قراءة المسودة المحفوظة (بيانات تالفة).');
+    showToast('تعذّر قراءة المسودة المحفوظة (بيانات تالفة).', 'error');
     return;
   }
 
@@ -449,7 +479,7 @@ function loadDraft(){
   // Signature: not restoring data URL (user re-adds)
   signatureDataUrl = null;
 
-  alert('تم استرجاع المسودة (يرجى إعادة التوقيع).');
+  showToast('تم استرجاع المسودة (يرجى إعادة التوقيع).', 'success');
   refresh();
 }
 
@@ -457,7 +487,7 @@ function applyLetterTypeUI(){
   const type = el('letterType')?.value || 'general';
   const costSection = el('section-costcenter');
   if (costSection){
-    costSection.style.display = type === 'general' ? 'none' : 'block';
+    toggleAnimated(costSection, type !== 'general');
   }
 }
 
@@ -465,11 +495,12 @@ function applySignatureModeUI(){
   const mode = el('signatureMode')?.value || 'canvas';
   const uploadField = el('signatureUploadField');
   const canvasWrap = el('signatureCanvasWrap');
-  if (uploadField) uploadField.style.display = mode === 'upload' ? 'block' : 'none';
-  if (canvasWrap) canvasWrap.style.display = mode === 'canvas' ? 'block' : 'none';
+  toggleAnimated(uploadField, mode === 'upload');
+  toggleAnimated(canvasWrap, mode === 'canvas');
 }
 
 // Expose for print.js
 window.collectState = collectState;
+window.showToast = showToast;
 
 document.addEventListener('DOMContentLoaded', init);
