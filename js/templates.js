@@ -92,15 +92,12 @@ function labelAndText(label, text){
   const wrap = document.createElement('div');
   wrap.className = 'letterPara';
 
-  const labelEl = document.createElement('div');
-  labelEl.className = 'letterLabel';
-  labelEl.textContent = label;
+  if (!text) return wrap;
 
   const body = document.createElement('div');
   body.style.whiteSpace = 'pre-wrap';
-  body.textContent = text || '—';
+  body.textContent = text;
 
-  wrap.appendChild(labelEl);
   wrap.appendChild(body);
   return wrap;
 }
@@ -112,39 +109,35 @@ function signatureBlock(state){
   const meta = document.createElement('div');
   meta.className = 'sigMeta';
 
-  const row1 = document.createElement('div');
-  row1.className = 'sigMetaRow';
-  row1.innerHTML = `<span class="letterLabel">مقدم الطلب:</span> ${escapeHtml(state.applicantName || '—')}`;
+  if (state.jobTitle) {
+    const row1 = document.createElement('div');
+    row1.className = 'sigMetaRow';
+    row1.textContent = state.jobTitle;
+    meta.appendChild(row1);
+  }
 
-  const row2 = document.createElement('div');
-  row2.className = 'sigMetaRow';
-  row2.innerHTML = `<span class="letterLabel">المسمى الوظيفي:</span> ${escapeHtml(state.jobTitle || '—')}`;
+  if (state.applicantName) {
+    const row2 = document.createElement('div');
+    row2.className = 'sigMetaRow';
+    row2.textContent = state.applicantName;
+    meta.appendChild(row2);
+  }
 
-  meta.appendChild(row1);
-  meta.appendChild(row2);
-
-  const sigWrap = document.createElement('div');
-  const sigLabel = document.createElement('div');
-  sigLabel.className = 'sigMetaRow';
-  sigLabel.innerHTML = `<span class="letterLabel">التوقيع:</span>`;
-
-  const sigBox = document.createElement('div');
-  sigBox.className = 'sigBox';
-
-  if (state.signatureDataUrl){
+  if (state.signatureDataUrl) {
+    const sigWrap = document.createElement('div');
+    const sigBox = document.createElement('div');
+    sigBox.className = 'sigBox';
     const img = document.createElement('img');
     img.className = 'sigImg';
     img.src = state.signatureDataUrl;
     img.alt = 'Signature';
     sigBox.appendChild(img);
-  }else{
-    sigBox.textContent = '—';
+    sigWrap.appendChild(sigBox);
+    block.appendChild(meta);
+    block.appendChild(sigWrap);
+  } else {
+    block.appendChild(meta);
   }
 
-  sigWrap.appendChild(sigLabel);
-  sigWrap.appendChild(sigBox);
-
-  block.appendChild(meta);
-  block.appendChild(sigWrap);
   return block;
 }

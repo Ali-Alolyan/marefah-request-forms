@@ -128,7 +128,7 @@
     if (type === 'custody'){
       const programPart = state.programNameAr ? `لبرنامج ${state.programNameAr}` : 'للبرنامج المعني';
       blocks.push({ kind: 'para', text: `آمل من سعادتكم التكرم بالموافقة على صرف عهدة مالية ${programPart}.` });
-      blocks.push({ kind: 'labeltext', label: 'تفاصيل الطلب:', text: state.details || '—' });
+      if (state.details) blocks.push({ kind: 'plaintext', text: state.details });
 
       const amt = ensureNumber(state.custodyAmount);
       const amtTxt = amt != null ? `${formatNumberArabic(amt)} ريال سعودي` : '—';
@@ -152,11 +152,11 @@
     }
 
     if (type === 'general'){
-      blocks.push({ kind: 'labeltext', label: 'تفاصيل الخطاب:', text: state.details || '—' });
+      if (state.details) blocks.push({ kind: 'plaintext', text: state.details });
       blocks.push({ kind: 'para', text: 'شاكرين لسعادتكم حسن تعاونكم،،،' });
     }
 
-    blocks.push({ kind: 'signature', applicantName: state.applicantName || '—', jobTitle: state.jobTitle || '—', signatureDataUrl: state.signatureDataUrl || null });
+    blocks.push({ kind: 'signature', applicantName: state.applicantName || '', jobTitle: state.jobTitle || '', signatureDataUrl: state.signatureDataUrl || null });
     return blocks;
   }
 
@@ -217,6 +217,20 @@
         continue;
       }
 
+      if (b.kind === 'plaintext'){
+        // text lines only, no label
+        const lines = wrapText(layout.measureCtxBody, b.text, layout.contentW);
+        let idx = 0;
+        while (idx < lines.length){
+          if (!canFit(lh)) newPage();
+          addTextLine(lines[idx], layout.contentRight, y, { size: bodyPx, weight: 400, align:'right' });
+          y += lh;
+          idx++;
+        }
+        addGapMm(3);
+        continue;
+      }
+
       if (b.kind === 'labeltext'){
         // label line
         const labelH = lh;
@@ -268,10 +282,14 @@
         if (!canFit(blockH)) newPage();
 
         addGapMm(4);
-        // Right side meta (label bold, value regular — no overlay)
-        pageOps.push({ op:'labelvalue', label: 'مقدم الطلب:', value: b.applicantName, x: layout.contentRight, y, style: { size: bodyPx } });
-        y += lh;
-        pageOps.push({ op:'labelvalue', label: 'المسمى الوظيفي:', value: b.jobTitle, x: layout.contentRight, y, style: { size: bodyPx } });
+        // Right side meta — no labels, job title first, skip empty
+        if (b.jobTitle) {
+          addTextLine(b.jobTitle, layout.contentRight, y, { size: bodyPx, weight: 400, align:'right' });
+          y += lh;
+        }
+        if (b.applicantName) {
+          addTextLine(b.applicantName, layout.contentRight, y, { size: bodyPx, weight: 400, align:'right' });
+        }
         // left side signature box
         const sigBoxW = mmToPx(60, layout.dpi);
         const sigBoxH = mmToPx(28, layout.dpi);
