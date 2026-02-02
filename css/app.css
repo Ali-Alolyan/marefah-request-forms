@@ -600,13 +600,13 @@ body{
 /* Signature block */
 .sigBlock{
   display:flex;
-  justify-content: space-between;
-  gap: 10mm;
+  flex-direction: column;
+  align-items: flex-end;
   margin-top: 6mm;
-  align-items: flex-start;
 }
-.sigMeta{ min-width: 55%; }
+.sigMeta{ }
 .sigMetaRow{ margin: 0 0 2mm 0; }
+.sigMetaRow--placeholder{ color: rgba(15,23,42,0.35); }
 .sigBox{
   width: 60mm;
   height: 28mm;

@@ -9,7 +9,7 @@ function buildSubjectByType(type, costCenter){
   // Keep subject clean (no lengthy codes). Cost center is shown inside the letter body.
   if (type === 'custody') return 'طلب عهدة مالية';
   if (type === 'close_custody') return 'طلب إغلاق عهدة مالية';
-  return 'خطاب عام';
+  return '';
 }
 
 function renderLetterBlocks(state){
@@ -17,7 +17,12 @@ function renderLetterBlocks(state){
 
   const title = document.createElement('div');
   title.className = 'letterTitle';
-  title.innerHTML = escapeHtml(state.subject || '');
+  if (state.subject) {
+    title.textContent = state.subject;
+  } else {
+    title.textContent = 'الموضوع';
+    title.classList.add('sigMetaRow--placeholder');
+  }
   blocks.push(title);
 
   const to = document.createElement('div');
@@ -25,7 +30,7 @@ function renderLetterBlocks(state){
   to.textContent = EXECUTIVE_DIRECTOR;
   blocks.push(to);
 
-  blocks.push(paragraph('السلام عليكم ورحمة الله وبركاته،،، وبعد:'));
+  blocks.push(paragraph('السلام عليكم ورحمة الله وبركاته، وبعد:'));
 
   // Cost center is only needed for custody / close custody.
   if (state.type !== 'general') {
@@ -51,7 +56,7 @@ function renderLetterBlocks(state){
     blocks.push(paragraph(`<span class="letterLabel">مبلغ العهدة المطلوب:</span> ${amt}`));
     blocks.push(paragraph('<span class="muted">على ألا يتجاوز الحد الأعلى المعتمد 5,000 ريال سعودي</span>'));
 
-    blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،،،'));
+    blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،'));
   }
 
   if (state.type === 'close_custody'){
@@ -69,12 +74,19 @@ function renderLetterBlocks(state){
     blocks.push(paragraph(`<span class="letterLabel">عدد المشفوعات:</span> ${att}`));
 
     blocks.push(paragraph('وسيتم إرفاق المشفوعات الداعمة (الفواتير/المستندات) ضمن إجراءات الإغلاق لدى الإدارة المختصة.'));
-    blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،،،'));
+    blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،'));
   }
 
   if (state.type === 'general'){
-    blocks.push(labelAndText('تفاصيل الخطاب:', state.details));
-    blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،،،'));
+    if (state.details) {
+      blocks.push(labelAndText('تفاصيل الخطاب:', state.details));
+    } else {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'letterPara sigMetaRow--placeholder';
+      placeholder.textContent = 'تفاصيل الخطاب';
+      blocks.push(placeholder);
+    }
+    blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،'));
   }
 
   blocks.push(signatureBlock(state));
@@ -109,35 +121,31 @@ function signatureBlock(state){
   const meta = document.createElement('div');
   meta.className = 'sigMeta';
 
-  if (state.jobTitle) {
-    const row1 = document.createElement('div');
-    row1.className = 'sigMetaRow';
-    row1.textContent = state.jobTitle;
-    meta.appendChild(row1);
-  }
+  // Job title row (always shown; placeholder when empty)
+  const row1 = document.createElement('div');
+  row1.className = 'sigMetaRow' + (state.jobTitle ? '' : ' sigMetaRow--placeholder');
+  row1.textContent = state.jobTitle || 'المسمى الوظيفي';
+  meta.appendChild(row1);
 
-  if (state.applicantName) {
-    const row2 = document.createElement('div');
-    row2.className = 'sigMetaRow';
-    row2.textContent = state.applicantName;
-    meta.appendChild(row2);
-  }
+  // Applicant name row (always shown; placeholder when empty)
+  const row2 = document.createElement('div');
+  row2.className = 'sigMetaRow' + (state.applicantName ? '' : ' sigMetaRow--placeholder');
+  row2.textContent = state.applicantName || 'اسم مقدم الطلب';
+  meta.appendChild(row2);
 
+  block.appendChild(meta);
+
+  // Signature box (always shown below meta)
+  const sigBox = document.createElement('div');
+  sigBox.className = 'sigBox';
   if (state.signatureDataUrl) {
-    const sigWrap = document.createElement('div');
-    const sigBox = document.createElement('div');
-    sigBox.className = 'sigBox';
     const img = document.createElement('img');
     img.className = 'sigImg';
     img.src = state.signatureDataUrl;
     img.alt = 'Signature';
     sigBox.appendChild(img);
-    sigWrap.appendChild(sigBox);
-    block.appendChild(meta);
-    block.appendChild(sigWrap);
-  } else {
-    block.appendChild(meta);
   }
+  block.appendChild(sigBox);
 
   return block;
 }

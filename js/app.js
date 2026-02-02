@@ -334,11 +334,19 @@ function collectState(){
   }
   const attachmentsText = attachments ? formatNumberArabic(attachments) : '';
 
-  // Subject: auto-fill if empty or matches old auto pattern
+  // Subject: auto-fill for custody types; leave empty for general (custom)
   const currentSubject = String(el('subject').value || '').trim();
   const autoSubject = buildSubjectByType(type, cc.costCenter);
-  if (!currentSubject || currentSubject.startsWith('طلب عهدة') || currentSubject.startsWith('طلب إغلاق') || currentSubject.startsWith('خطاب عام')){
-    el('subject').value = autoSubject;
+  if (type === 'general'){
+    // Clear auto-filled custody subjects when switching to general
+    if (currentSubject.startsWith('طلب عهدة') || currentSubject.startsWith('طلب إغلاق')){
+      el('subject').value = '';
+    }
+  } else {
+    // Auto-fill only for custody types, and only if empty or matches another auto pattern
+    if (!currentSubject || currentSubject.startsWith('طلب عهدة') || currentSubject.startsWith('طلب إغلاق')){
+      el('subject').value = autoSubject;
+    }
   }
   const subject = String(el('subject').value || '').trim();
 

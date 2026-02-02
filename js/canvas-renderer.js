@@ -117,7 +117,7 @@
 
     blocks.push({ kind: 'title', text: state.subject || '' });
     blocks.push({ kind: 'to', text: EXECUTIVE_DIRECTOR });
-    blocks.push({ kind: 'para', text: 'السلام عليكم ورحمة الله وبركاته،،، وبعد:' });
+    blocks.push({ kind: 'para', text: 'السلام عليكم ورحمة الله وبركاته، وبعد:' });
 
     if (type !== 'general'){
       const cc = state.costCenter ? ltrWrap(state.costCenter) : '—';
@@ -134,7 +134,7 @@
       const amtTxt = amt != null ? `${formatNumberArabic(amt)} ريال سعودي` : '—';
       blocks.push({ kind: 'para', label: 'مبلغ العهدة المطلوب:', text: amtTxt });
       blocks.push({ kind: 'muted', text: 'على ألا يتجاوز الحد الأعلى المعتمد 5,000 ريال سعودي' });
-      blocks.push({ kind: 'para', text: 'شاكرين لسعادتكم حسن تعاونكم،،،' });
+      blocks.push({ kind: 'para', text: 'شاكرين لسعادتكم حسن تعاونكم،' });
     }
 
     if (type === 'close_custody'){
@@ -148,12 +148,16 @@
       blocks.push({ kind: 'para', label: 'المبلغ المتبقي:', text: remaining != null ? `${formatNumberArabic(remaining)} ريال سعودي` : '—' });
       blocks.push({ kind: 'para', label: 'عدد المشفوعات:', text: att != null ? formatNumberArabic(att) : '—' });
       blocks.push({ kind: 'para', text: 'وسيتم إرفاق المشفوعات الداعمة (الفواتير/المستندات) ضمن إجراءات الإغلاق لدى الإدارة المختصة.' });
-      blocks.push({ kind: 'para', text: 'شاكرين لسعادتكم حسن تعاونكم،،،' });
+      blocks.push({ kind: 'para', text: 'شاكرين لسعادتكم حسن تعاونكم،' });
     }
 
     if (type === 'general'){
-      if (state.details) blocks.push({ kind: 'plaintext', text: state.details });
-      blocks.push({ kind: 'para', text: 'شاكرين لسعادتكم حسن تعاونكم،،،' });
+      if (state.details) {
+        blocks.push({ kind: 'plaintext', text: state.details });
+      } else {
+        blocks.push({ kind: 'placeholder', text: 'تفاصيل الخطاب' });
+      }
+      blocks.push({ kind: 'para', text: 'شاكرين لسعادتكم حسن تعاونكم،' });
     }
 
     blocks.push({ kind: 'signature', applicantName: state.applicantName || '', jobTitle: state.jobTitle || '', signatureDataUrl: state.signatureDataUrl || null });
@@ -191,7 +195,9 @@
       if (b.kind === 'title'){
         const h = lh * 1.15;
         if (!canFit(h)) newPage();
-        pageOps.push({ op:'text', text: sanitizeText(b.text), x: layout.pageW/2, y, style: { size: titlePx, weight: 700, align:'center' } });
+        const titleText = sanitizeText(b.text) || 'الموضوع';
+        const titleColor = b.text ? '#000' : 'rgba(15,23,42,0.35)';
+        pageOps.push({ op:'text', text: titleText, x: layout.pageW/2, y, style: { size: titlePx, weight: 700, align:'center', color: titleColor } });
         y += h;
         addGapMm(8);
         continue;
@@ -213,6 +219,15 @@
           addTextLine(line, layout.contentRight, y, { size: mutedPx, weight: 400, align:'right', color: 'rgba(0,0,0,0.55)' });
           y += lh*0.95;
         }
+        addGapMm(3);
+        continue;
+      }
+
+      if (b.kind === 'placeholder'){
+        const h = lh;
+        if (!canFit(h)) newPage();
+        addTextLine(b.text, layout.contentRight, y, { size: bodyPx, weight: 400, align:'right', color: 'rgba(15,23,42,0.35)' });
+        y += lh;
         addGapMm(3);
         continue;
       }
@@ -278,26 +293,31 @@
 
       if (b.kind === 'signature'){
         // Ensure the whole signature block sits together if possible.
-        const blockH = mmToPx(38, layout.dpi); // approx
+        const blockH = mmToPx(42, layout.dpi); // approx: 2 text rows + sig box
         if (!canFit(blockH)) newPage();
 
         addGapMm(4);
-        // Right side meta — no labels, job title first, skip empty
-        if (b.jobTitle) {
-          addTextLine(b.jobTitle, layout.contentRight, y, { size: bodyPx, weight: 400, align:'right' });
-          y += lh;
-        }
-        if (b.applicantName) {
-          addTextLine(b.applicantName, layout.contentRight, y, { size: bodyPx, weight: 400, align:'right' });
-        }
-        // left side signature box
+        // Left-aligned, stacked vertically: job title → applicant name → signature box
+        const sigTextX = layout.contentLeft;
+
+        // Job title (placeholder if empty)
+        const jobText = b.jobTitle || 'المسمى الوظيفي';
+        const jobColor = b.jobTitle ? '#000' : 'rgba(15,23,42,0.35)';
+        addTextLine(jobText, sigTextX, y, { size: bodyPx, weight: 400, align:'left', color: jobColor });
+        y += lh;
+
+        // Applicant name (placeholder if empty)
+        const nameText = b.applicantName || 'اسم مقدم الطلب';
+        const nameColor = b.applicantName ? '#000' : 'rgba(15,23,42,0.35)';
+        addTextLine(nameText, sigTextX, y, { size: bodyPx, weight: 400, align:'left', color: nameColor });
+        y += lh;
+
+        // Signature box below text rows
         const sigBoxW = mmToPx(60, layout.dpi);
         const sigBoxH = mmToPx(28, layout.dpi);
-        const sigX = layout.contentLeft; // on the left side of the page
-        const sigY = y - lh; // align with meta rows
-        pageOps.push({ op:'sigBox', x: sigX, y: sigY, w: sigBoxW, h: sigBoxH, dataUrl: b.signatureDataUrl });
+        pageOps.push({ op:'sigBox', x: sigTextX, y: y, w: sigBoxW, h: sigBoxH, dataUrl: b.signatureDataUrl });
 
-        y += lh;
+        y += sigBoxH;
         addGapMm(2);
         continue;
       }
