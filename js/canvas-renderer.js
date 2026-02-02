@@ -293,29 +293,33 @@
 
       if (b.kind === 'signature'){
         // Ensure the whole signature block sits together if possible.
-        const blockH = mmToPx(42, layout.dpi); // approx: 2 text rows + sig box
+        const blockH = mmToPx(44, layout.dpi); // approx: 2 text rows + padding + sig box
         if (!canFit(blockH)) newPage();
 
-        addGapMm(4);
-        // Left-aligned, stacked vertically: job title → applicant name → signature box
-        const sigTextX = layout.contentLeft;
-
-        // Job title (placeholder if empty)
-        const jobText = b.jobTitle || 'المسمى الوظيفي';
-        const jobColor = b.jobTitle ? '#000' : 'rgba(15,23,42,0.35)';
-        addTextLine(jobText, sigTextX, y, { size: bodyPx, weight: 400, align:'left', color: jobColor });
-        y += lh;
-
-        // Applicant name (placeholder if empty)
-        const nameText = b.applicantName || 'اسم مقدم الطلب';
-        const nameColor = b.applicantName ? '#000' : 'rgba(15,23,42,0.35)';
-        addTextLine(nameText, sigTextX, y, { size: bodyPx, weight: 400, align:'left', color: nameColor });
-        y += lh;
-
-        // Signature box below text rows
+        addGapMm(6);
+        // Left side, centered text within 60mm-wide block
         const sigBoxW = mmToPx(60, layout.dpi);
         const sigBoxH = mmToPx(28, layout.dpi);
-        pageOps.push({ op:'sigBox', x: sigTextX, y: y, w: sigBoxW, h: sigBoxH, dataUrl: b.signatureDataUrl });
+        const sigX = layout.contentLeft;
+        const sigCenterX = sigX + sigBoxW / 2;
+
+        // Job title (centered, placeholder if empty)
+        const jobText = b.jobTitle || 'المسمى الوظيفي';
+        const jobColor = b.jobTitle ? '#000' : 'rgba(15,23,42,0.35)';
+        addTextLine(jobText, sigCenterX, y, { size: bodyPx, weight: 400, align:'center', color: jobColor });
+        y += lh;
+
+        // Applicant name (centered, placeholder if empty)
+        const nameText = b.applicantName || 'اسم مقدم الطلب';
+        const nameColor = b.applicantName ? '#000' : 'rgba(15,23,42,0.35)';
+        addTextLine(nameText, sigCenterX, y, { size: bodyPx, weight: 400, align:'center', color: nameColor });
+        y += lh;
+
+        // Small gap before signature box
+        addGapMm(1);
+
+        // Signature box below text rows
+        pageOps.push({ op:'sigBox', x: sigX, y: y, w: sigBoxW, h: sigBoxH, dataUrl: b.signatureDataUrl });
 
         y += sigBoxH;
         addGapMm(2);
@@ -496,19 +500,11 @@
           setFont(ctx, size, 400);
           ctx.fillText(op.value, op.x - labelW, op.y);
         }else if (op.op === 'sigBox'){
-          // Signature box
           ctx.save();
-          ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-          ctx.lineWidth = Math.max(1, dpi/300);
-          // Rounded rect approximation
-          const r = mmToPx(2, dpi);
-          roundRect(ctx, op.x, op.y, op.w, op.h, r);
-          ctx.stroke();
-          // Signature image
           if (op.dataUrl){
+            // Signature present: draw image without border
             const sImg = await getSigImg(op.dataUrl);
             if (sImg){
-              // Contain
               const pad = mmToPx(2, dpi);
               const bx = op.x + pad;
               const by = op.y + pad;
@@ -518,10 +514,16 @@
               ctx.drawImage(sImg, bx + (bw-fit.w)/2, by + (bh-fit.h)/2, fit.w, fit.h);
             }
           }else{
-            ctx.fillStyle = 'rgba(0,0,0,0.35)';
-            setFont(ctx, mmToPx(cssPxToMm(12), dpi), 400);
+            // No signature: draw border + placeholder text
+            ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+            ctx.lineWidth = Math.max(1, dpi/300);
+            const r = mmToPx(2, dpi);
+            roundRect(ctx, op.x, op.y, op.w, op.h, r);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(15,23,42,0.35)';
+            setFont(ctx, mmToPx(cssPxToMm(14), dpi), 400);
             ctx.textAlign = 'center';
-            ctx.fillText('—', op.x + op.w/2, op.y + op.h/2 - mmToPx(4, dpi));
+            ctx.fillText('التوقيع', op.x + op.w/2, op.y + op.h/2 - mmToPx(3, dpi));
           }
           ctx.restore();
         }

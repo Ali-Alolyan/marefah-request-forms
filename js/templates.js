@@ -139,11 +139,17 @@ function signatureBlock(state){
   const sigBox = document.createElement('div');
   sigBox.className = 'sigBox';
   if (state.signatureDataUrl) {
+    sigBox.classList.add('sigBox--filled');
     const img = document.createElement('img');
     img.className = 'sigImg';
     img.src = state.signatureDataUrl;
     img.alt = 'Signature';
     sigBox.appendChild(img);
+  } else {
+    const ph = document.createElement('span');
+    ph.className = 'sigMetaRow--placeholder';
+    ph.textContent = 'التوقيع';
+    sigBox.appendChild(ph);
   }
   block.appendChild(sigBox);
 

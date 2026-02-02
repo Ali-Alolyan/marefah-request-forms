@@ -310,10 +310,9 @@ function computeDates(){
   const iso = el('date').value;
   const d = parseISOToLocalDate(iso) || new Date();
   const hijri = window.hijriConverter.toHijri(d);
-  // Display dates as compact numbers (DD/MM/YYYY) to avoid overlap in the header.
-  // (Keeping suffixes هـ / م as required.)
-  const dateHijri = window.hijriConverter.formatHijriNumeric(hijri, { separator: '/', useArabicDigits: false });
-  const dateGregorian = window.hijriConverter.formatGregorianNumeric(d, { separator: '/', useArabicDigits: false });
+  // Use spaced separators to match the date textbox display format.
+  const dateHijri = window.hijriConverter.formatHijriNumeric(hijri, { useArabicDigits: false });
+  const dateGregorian = window.hijriConverter.formatGregorianNumeric(d, { useArabicDigits: false });
   return { dateISO: iso, dateHijri, dateGregorian };
 }
 
