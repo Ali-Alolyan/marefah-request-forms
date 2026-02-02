@@ -33,11 +33,19 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Prepare deploy directory
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp -r css _site/css
+          cp -r js _site/js
+          cp -r assets _site/assets
+          [ -f favicon.ico ] && cp favicon.ico _site/ || true
+          [ -f apple-touch-icon.png ] && cp apple-touch-icon.png _site/ || true
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.'
+          path: '_site'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

@@ -294,7 +294,7 @@
 }
 
 [data-theme="dark"] #signatureCanvas {
-  background: var(--md-sys-color-surface-bright);
+  background: #ffffff;
 }
 
 /* Accessibility - high contrast mode */

@@ -117,13 +117,13 @@ class DualCalendarPicker {
     let calendarHTML = `
       <div class="dcp-calendar">
         <div class="dcp-calendar-nav">
-          <button type="button" class="dcp-nav-btn" data-action="prev-year">«</button>
-          <button type="button" class="dcp-nav-btn" data-action="prev-month">‹</button>
+          <button type="button" class="dcp-nav-btn" data-action="prev-year" aria-label="السنة السابقة">«</button>
+          <button type="button" class="dcp-nav-btn" data-action="prev-month" aria-label="الشهر السابق">‹</button>
           <div class="dcp-current-month">
             ${monthNames[this.currentMonth]} ${this.currentYear}
           </div>
-          <button type="button" class="dcp-nav-btn" data-action="next-month">›</button>
-          <button type="button" class="dcp-nav-btn" data-action="next-year">»</button>
+          <button type="button" class="dcp-nav-btn" data-action="next-month" aria-label="الشهر التالي">›</button>
+          <button type="button" class="dcp-nav-btn" data-action="next-year" aria-label="السنة التالية">»</button>
         </div>
 
         <div class="dcp-weekdays">
@@ -136,7 +136,7 @@ class DualCalendarPicker {
           <div>سبت</div>
         </div>
 
-        <div class="dcp-days">
+        <div class="dcp-days" role="grid">
     `;
 
     // Empty cells before first day
@@ -156,7 +156,7 @@ class DualCalendarPicker {
       if (isSelected) classes += ' dcp-day-selected';
 
       calendarHTML += `
-        <div class="${classes}" data-date="${this.currentYear}-${(this.currentMonth + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}">
+        <div class="${classes}" tabindex="0" role="gridcell" aria-label="${day} ${monthNames[this.currentMonth]} ${this.currentYear}" data-date="${this.currentYear}-${(this.currentMonth + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}">
           ${day}
         </div>
       `;
@@ -184,13 +184,13 @@ class DualCalendarPicker {
     let calendarHTML = `
       <div class="dcp-calendar">
         <div class="dcp-calendar-nav">
-          <button type="button" class="dcp-nav-btn" data-action="prev-year-hijri">«</button>
-          <button type="button" class="dcp-nav-btn" data-action="prev-month-hijri">‹</button>
+          <button type="button" class="dcp-nav-btn" data-action="prev-year-hijri" aria-label="السنة السابقة">«</button>
+          <button type="button" class="dcp-nav-btn" data-action="prev-month-hijri" aria-label="الشهر السابق">‹</button>
           <div class="dcp-current-month">
             ${monthNames[this.currentHijriMonth - 1]} ${this.currentHijriYear} هـ
           </div>
-          <button type="button" class="dcp-nav-btn" data-action="next-month-hijri">›</button>
-          <button type="button" class="dcp-nav-btn" data-action="next-year-hijri">»</button>
+          <button type="button" class="dcp-nav-btn" data-action="next-month-hijri" aria-label="الشهر التالي">›</button>
+          <button type="button" class="dcp-nav-btn" data-action="next-year-hijri" aria-label="السنة التالية">»</button>
         </div>
 
         <div class="dcp-weekdays">
@@ -203,7 +203,7 @@ class DualCalendarPicker {
           <div>سبت</div>
         </div>
 
-        <div class="dcp-days">
+        <div class="dcp-days" role="grid">
     `;
 
     // Empty cells before first day
@@ -230,7 +230,7 @@ class DualCalendarPicker {
       const isoDate = toLocalISODate(gregorianDate);
 
       calendarHTML += `
-        <div class="${classes}" data-date="${isoDate}" data-hijri="${this.currentHijriYear}-${this.currentHijriMonth}-${day}">
+        <div class="${classes}" tabindex="0" role="gridcell" aria-label="${day} ${monthNames[this.currentHijriMonth - 1]} ${this.currentHijriYear} هـ" data-date="${isoDate}" data-hijri="${this.currentHijriYear}-${this.currentHijriMonth}-${day}">
           ${day}
         </div>
       `;
@@ -283,9 +283,19 @@ class DualCalendarPicker {
       }
     });
 
-    // Prevent default date picker
+    // Allow Enter/Space to open, Escape to close; block other keys on the display input
     this.displayInput.addEventListener('keydown', (e) => {
-      e.preventDefault();
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (!this.isOpen) this.open();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        if (this.isOpen) this.close();
+      } else if (e.key === 'Tab') {
+        // Allow natural tab navigation
+      } else {
+        e.preventDefault();
+      }
     });
 
     // Close on outside click
@@ -376,6 +386,56 @@ class DualCalendarPicker {
         this.close();
       });
     }
+
+    // Arrow key navigation inside .dcp-days
+    const daysGrid = this.container.querySelector('.dcp-days');
+    if (daysGrid) {
+      daysGrid.addEventListener('keydown', (e) => {
+        const days = Array.from(daysGrid.querySelectorAll('.dcp-day:not(.dcp-day-empty)'));
+        const idx = days.indexOf(document.activeElement);
+        if (idx < 0) return;
+
+        // RTL: ArrowRight = previous, ArrowLeft = next (opposite of LTR)
+        const isRTL = document.documentElement.dir === 'rtl';
+        let target = -1;
+
+        if (e.key === 'ArrowRight') {
+          target = isRTL ? idx - 1 : idx + 1;
+        } else if (e.key === 'ArrowLeft') {
+          target = isRTL ? idx + 1 : idx - 1;
+        } else if (e.key === 'ArrowUp') {
+          target = idx - 7;
+        } else if (e.key === 'ArrowDown') {
+          target = idx + 7;
+        } else if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          days[idx].click();
+          return;
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          this.close();
+          if (this.displayInput) this.displayInput.focus();
+          return;
+        } else {
+          return;
+        }
+
+        e.preventDefault();
+        if (target >= 0 && target < days.length) {
+          days[target].focus();
+        }
+      });
+    }
+
+    // Escape key on the whole container
+    this.container.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        this.close();
+        if (this.displayInput) this.displayInput.focus();
+      }
+    });
   }
 
   /**

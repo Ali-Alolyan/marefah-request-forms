@@ -103,7 +103,7 @@ class ThemeManager {
     }
 
     // Use surface color from the theme
-    const color = theme === 'dark' ? '#111311' : '#fcfdf7';
+    const color = theme === 'dark' ? '#0b1220' : '#ffffff';
     metaThemeColor.content = color;
   }
 

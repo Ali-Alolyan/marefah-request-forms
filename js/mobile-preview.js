@@ -78,8 +78,9 @@ Mobile Preview Viewer
 
       this._boundResize = () => this.fit();
       this._boundKey = (e)=> {
-        if (e.key === 'ArrowLeft') this.prev();
-        if (e.key === 'ArrowRight') this.next();
+        const isRTL = document.documentElement.dir === 'rtl';
+        if (e.key === 'ArrowLeft') { isRTL ? this.next() : this.prev(); }
+        if (e.key === 'ArrowRight') { isRTL ? this.prev() : this.next(); }
       };
     }
 
@@ -387,7 +388,12 @@ Mobile Preview Viewer
 
         const nearFit = Math.abs(this.scale - this.baseFitScale) <= (this.baseFitScale * 0.06);
         if (nearFit && dt < 380 && Math.abs(dx) > 70 && Math.abs(dy) < 60){
-          if (dx < 0) this.next(); else this.prev();
+          const isRTL = document.documentElement.dir === 'rtl';
+          if (isRTL) {
+            if (dx > 0) this.next(); else this.prev();
+          } else {
+            if (dx < 0) this.next(); else this.prev();
+          }
         }
       }
 

@@ -15,3 +15,7 @@ Thumbs.db
 
 # Packaging artifacts
 *.zip
+
+# Sensitive data
+secure/
+.mcp.json

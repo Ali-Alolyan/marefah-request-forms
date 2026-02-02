@@ -133,8 +133,10 @@
       const amt = ensureNumber(state.custodyAmount);
       const amtTxt = amt != null ? `${formatNumberArabic(amt)} ريال سعودي` : '—';
       blocks.push({ kind: 'para', label: 'مبلغ العهدة المطلوب:', text: amtTxt });
-      blocks.push({ kind: 'muted', text: 'على ألا يتجاوز الحد الأعلى المعتمد 5,000 ريال سعودي' });
       blocks.push({ kind: 'para', text: 'شاكرين لسعادتكم حسن تعاونكم،' });
+      if (state.agreedToTerms) {
+        blocks.push({ kind: 'agreement' });
+      }
     }
 
     if (type === 'close_custody'){
@@ -149,6 +151,9 @@
       blocks.push({ kind: 'para', label: 'عدد المشفوعات:', text: att != null ? formatNumberArabic(att) : '—' });
       blocks.push({ kind: 'para', text: 'وسيتم إرفاق المشفوعات الداعمة (الفواتير/المستندات) ضمن إجراءات الإغلاق لدى الإدارة المختصة.' });
       blocks.push({ kind: 'para', text: 'شاكرين لسعادتكم حسن تعاونكم،' });
+      if (state.agreedToTerms) {
+        blocks.push({ kind: 'agreement' });
+      }
     }
 
     if (type === 'general'){
@@ -286,6 +291,35 @@
           }
           y += lh;
           idx++;
+        }
+        addGapMm(3);
+        continue;
+      }
+
+      if (b.kind === 'agreement'){
+        const agreementItems = [
+          'نظامية الفواتير: يجب أن تكون جميع الفواتير رسمية (إلكترونية).',
+          'بيانات الجهة: ضرورة إدراج اسم الجمعية والرقم الضريبي بشكل واضح على الفواتير.',
+          'المدة الزمنية: الالتزام بإقفال العهدة خلال مدة لا تتجاوز 60 يوماً من تاريخ استلامها.',
+          'نموذج الإقفال: تُفرغ بيانات الفواتير في "نموذج إقفال العهدة" المعتمد، والذي سيتم تزويدكم به من قبل الإدارة المالية.',
+          'مطابقة المبلغ: يجب أن يكون إجمالي مبلغ الإقفال مساوياً للمبلغ الذي تم تحويله للعهدة تماماً.',
+          'التوثيق الضوئي: يرجى تصوير الفواتير "الحرارية" (الورق الحساس) ضوئياً؛ لضمان عدم تلاشي البيانات مع مرور الوقت.',
+        ];
+        addGapMm(2);
+        // Heading
+        const headingText = 'الضوابط والإجراءات المالية:';
+        if (!canFit(lh)) newPage();
+        addTextLine(headingText, layout.contentRight, y, { size: bodyPx, weight: 700, align:'right' });
+        y += lh;
+        // Numbered items
+        for (let ai = 0; ai < agreementItems.length; ai++){
+          const itemText = `${ai + 1}. ${agreementItems[ai]}`;
+          const lines = wrapText(layout.measureCtxBody, itemText, layout.contentW);
+          for (let li = 0; li < lines.length; li++){
+            if (!canFit(lh)) newPage();
+            addTextLine(lines[li], layout.contentRight, y, { size: mutedPx, weight: 400, align:'right' });
+            y += lh * 0.9;
+          }
         }
         addGapMm(3);
         continue;

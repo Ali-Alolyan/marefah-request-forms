@@ -61,6 +61,7 @@
     try{
       if (exportBtn){
         exportBtn.disabled = true;
+        exportBtn.classList.add('btn--exporting');
         exportBtn.textContent = 'جاري التصدير…';
       }
       showExportSpinner(true);
@@ -131,6 +132,7 @@
       showExportSpinner(false);
       if (exportBtn){
         exportBtn.disabled = false;
+        exportBtn.classList.remove('btn--exporting');
         exportBtn.textContent = btnOriginalText;
       }
     }

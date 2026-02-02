@@ -4,10 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="theme-color" content="#1e5aa8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://rlftalctuaybztrgegnb.supabase.co; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; object-src 'none'" />
   <meta name="description" content="مولّد خطابات رسمية لجمعية معرفة — إنشاء خطابات A4 بالتاريخ الهجري والميلادي والتوقيع الرقمي وتصدير PDF" />
   <title>مولّد الخطابات - جمعية معرفة</title>
 
   <!-- Local fonts (offline-friendly). Files live in assets/fonts/ -->
+  <link rel="preload" as="font" type="font/woff2" href="assets/fonts/saudi_riyal.woff2" crossorigin>
   <link rel="preload" as="font" type="font/ttf" href="assets/fonts/IBMPlexSansArabic-Regular.ttf" crossorigin>
   <link rel="preload" as="font" type="font/ttf" href="assets/fonts/IBMPlexSansArabic-Medium.ttf" crossorigin>
   <link rel="preload" as="font" type="font/ttf" href="assets/fonts/IBMPlexSansArabic-Bold.ttf" crossorigin>
@@ -21,6 +23,22 @@
 </head>
 
 <body data-mobile-view="form">
+  <!-- Login overlay -->
+  <div id="loginOverlay" class="login-overlay is-active" role="dialog" aria-modal="true" aria-label="تسجيل الدخول">
+    <div class="login-card">
+      <div class="login-card__header">تسجيل الدخول</div>
+      <p class="login-card__sub">أدخل كود الحساب الخاص بك للمتابعة</p>
+      <form id="loginForm" autocomplete="off">
+        <label class="field">
+          <span class="field__label">كود الحساب</span>
+          <input id="loginCode" class="field__control" type="text" inputmode="numeric" maxlength="9" dir="ltr" placeholder="000000000" autocomplete="off" />
+        </label>
+        <div id="loginError" class="login-error" style="display:none"></div>
+        <button id="loginSubmit" class="btn btn--primary login-btn" type="submit">تسجيل الدخول</button>
+      </form>
+    </div>
+  </div>
+
   <header class="topbar" aria-label="شريط الأدوات">
     <div class="topbar__title">
       <div class="badge">A4</div>
@@ -32,8 +50,8 @@
 
     <div class="topbar__actions">
       <div class="mobileTabs" role="tablist" aria-label="التنقل">
-        <button class="tab is-active" data-view="form" type="button">المدخلات</button>
-        <button class="tab" data-view="preview" type="button">المعاينة</button>
+        <button class="tab is-active" data-view="form" type="button" role="tab" aria-selected="true">المدخلات</button>
+        <button class="tab" data-view="preview" type="button" role="tab" aria-selected="false">المعاينة</button>
       </div>
 
       <button class="btn btn--ghost" id="theme-toggle" type="button">
@@ -54,7 +72,7 @@
         <div class="section__title">نوع الخطاب</div>
 
         <label class="field">
-          <span class="field__label">نوع الخطاب</span>
+          <span class="field__label">نوع الخطاب <span class="required-mark">*</span></span>
           <select id="letterType" class="field__control">
             <option value="general" selected>خطاب مخصص</option>
             <option value="custody">طلب عهدة مالية</option>
@@ -63,7 +81,7 @@
         </label>
 
         <label class="field">
-          <span class="field__label">التاريخ</span>
+          <span class="field__label">التاريخ <span class="required-mark">*</span></span>
           <input id="date" type="hidden" />
           <input id="dateDisplay" class="field__control md3-text-field__input--date" placeholder=" " readonly />
           <span class="field__hint">اختر تاريخًا واحدًا وسيظهر هجري/ميلادي تلقائيًا</span>
@@ -89,22 +107,22 @@
       </div>
 
       <div class="section">
-        <div class="section__title">بيانات مقدم الطلب</div>
+        <div class="section__title section__title--flex">بيانات مقدم الطلب <button id="btn-logout" class="btn btn--ghost btn--logout" type="button" style="display:none">تسجيل خروج</button></div>
 
         <div class="grid2">
           <label class="field">
-            <span class="field__label">المسمى الوظيفي</span>
+            <span class="field__label">المسمى الوظيفي <span class="required-mark">*</span></span>
             <input id="jobTitle" class="field__control" placeholder="مثال: مدير إدارة البرامج والمشاريع" />
           </label>
 
           <label class="field">
-            <span class="field__label">اسم مقدم الطلب</span>
+            <span class="field__label">اسم مقدم الطلب <span class="required-mark">*</span></span>
             <input id="applicantName" class="field__control" placeholder="مثال: م. علي عبدالله العليان" />
           </label>
         </div>
 
         <label class="field">
-          <span class="field__label">الموضوع</span>
+          <span class="field__label">الموضوع <span class="required-mark">*</span></span>
           <input id="subject" class="field__control" placeholder="أدخل موضوع الخطاب" />
         </label>
 
@@ -122,7 +140,7 @@
           <label class="field">
             <span class="field__label">مبلغ العهدة المطلوب (ريال)</span>
             <input id="custodyAmount" class="field__control" inputmode="decimal" placeholder="5000" />
-            <span class="field__hint">الحد الأعلى المعتمد 5,000 ريال سعودي</span>
+            <span class="field__hint">أدخل مبلغ العهدة بالريال السعودي</span>
           </label>
         </div>
 
@@ -155,6 +173,22 @@
         </div>
       </div>
 
+      <div class="section section-animated is-hidden" id="section-agreement">
+        <div class="section__title">الإقرار والتعهد</div>
+        <label class="agreement-check">
+          <input type="checkbox" id="agreeTerms" />
+          <span>أقر بالاطلاع والالتزام بالضوابط والإجراءات المالية التالية:</span>
+        </label>
+        <ol class="agreement-list" dir="rtl">
+          <li><b>نظامية الفواتير:</b> يجب أن تكون جميع الفواتير رسمية (إلكترونية).</li>
+          <li><b>بيانات الجهة:</b> ضرورة إدراج اسم الجمعية والرقم الضريبي بشكل واضح على الفواتير.</li>
+          <li><b>المدة الزمنية:</b> الالتزام بإقفال العهدة خلال مدة لا تتجاوز 60 يوماً من تاريخ استلامها.</li>
+          <li><b>نموذج الإقفال:</b> تُفرغ بيانات الفواتير في "نموذج إقفال العهدة" المعتمد، والذي سيتم تزويدكم به من قبل الإدارة المالية.</li>
+          <li><b>مطابقة المبلغ:</b> يجب أن يكون إجمالي مبلغ الإقفال مساوياً للمبلغ الذي تم تحويله للعهدة تماماً.</li>
+          <li><b>التوثيق الضوئي:</b> يرجى تصوير الفواتير "الحرارية" (الورق الحساس) ضوئياً؛ لضمان عدم تلاشي البيانات مع مرور الوقت.</li>
+        </ol>
+      </div>
+
       <div class="section">
         <div class="section__title">التوقيع</div>
 
@@ -174,7 +208,7 @@
         </div>
 
         <div id="signatureCanvasWrap" class="signature-canvas-container">
-          <canvas id="signatureCanvas" height="140" tabindex="0" aria-label="لوحة التوقيع"></canvas>
+          <canvas id="signatureCanvas" height="140" tabindex="0" aria-label="لوحة التوقيع" aria-describedby="signatureHelperText"></canvas>
 
           <div class="signature-toolbar">
             <div class="signature-toolbar-left">
@@ -202,7 +236,7 @@
 
           <div class="signature-helper-text">
             <span class="sig-helper-icon" aria-hidden="true">؟</span>
-            <span>ارسم التوقيع داخل المربع، وسيظهر في المعاينة مباشرة.</span>
+            <span id="signatureHelperText">ارسم التوقيع داخل المربع، وسيظهر في المعاينة مباشرة.</span>
           </div>
 
           <div id="aria-live-region" class="sr-only" aria-live="polite"></div>
@@ -276,8 +310,10 @@
 
   <!-- Bottom navigation (mobile) -->
   <nav class="bottomTabs" role="tablist" aria-label="التنقل">
-    <button class="tab is-active" data-view="form" type="button">المدخلات</button>
-    <button class="tab" data-view="preview" type="button">المعاينة</button>
+    <button class="tab is-active" data-view="form" type="button" role="tab" aria-selected="true">المدخلات</button>
+    <button class="tab" data-view="preview" type="button" role="tab" aria-selected="false">المعاينة</button>
+    <button class="btn btn--ghost bottomTabs__action" id="btn-save-mobile" type="button" title="حفظ المسودة">حفظ</button>
+    <button class="btn btn--ghost bottomTabs__action" id="btn-load-mobile" type="button" title="استرجاع المسودة">استرجاع</button>
   </nav>
 
   <!-- PDF export libs (for iOS parity). Used by js/print.js. -->
@@ -286,6 +322,11 @@
 
   <!-- Toast notification container -->
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"
+          integrity="sha384-YieCqqg9gQufX7+5HcFvCEg/n3KUEdl8/Jb+A6J0npf1mB740VayvwKjTrtCeUoy"
+          crossorigin="anonymous"></script>
+  <script src="js/auth.js"></script>
 
   <script src="js/hijri-converter.js"></script>
   <script src="js/utils.js"></script>
