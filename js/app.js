@@ -61,23 +61,6 @@ const el = (id) => document.getElementById(id);
 let signatureDataUrl = null;
 let COST_CENTER_LIST = [];
 
-// Date helpers (avoid timezone/UTC off-by-one when using ISO-only dates)
-function toLocalISODate(d){
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-function parseISOToLocalDate(iso){
-  const m = /^\s*(\d{4})-(\d{2})-(\d{2})\s*$/.exec(String(iso || ''));
-  if (!m) return null;
-  const y = Number(m[1]);
-  const mo = Number(m[2]);
-  const d = Number(m[3]);
-  const dt = new Date(y, mo - 1, d, 12, 0, 0, 0);
-  return Number.isNaN(dt.getTime()) ? null : dt;
-}
 
 function init(){
   buildCostCenters();
@@ -136,9 +119,16 @@ function bindUI(){
 
   // Signature mode (update UI immediately, then refresh)
   el('signatureMode').addEventListener('change', () => {
+    const mode = el('signatureMode').value;
+    // Warn before clearing an existing canvas drawing
+    if (mode === 'upload' && window.signatureManager && window.signatureManager.hasDrawing()){
+      if (!confirm('سيتم مسح التوقيع الحالي. هل تريد المتابعة؟')){
+        el('signatureMode').value = 'canvas';
+        return;
+      }
+    }
     applySignatureModeUI();
     signatureDataUrl = null;
-    const mode = el('signatureMode').value;
     if (mode === 'canvas'){
       el('signatureFile').value = '';
     }else{
@@ -155,7 +145,20 @@ function bindUI(){
       refresh();
       return;
     }
-    signatureDataUrl = await readFileAsDataUrl(file);
+    const MAX_SIG_SIZE = 5 * 1024 * 1024; // 5 MB
+    if (file.size > MAX_SIG_SIZE){
+      showToast('حجم الملف كبير جدًا (الحد الأقصى 5 ميغابايت).', 'error');
+      e.target.value = '';
+      signatureDataUrl = null;
+      refresh();
+      return;
+    }
+    try {
+      signatureDataUrl = await readFileAsDataUrl(file);
+    } catch (_) {
+      showToast('تعذر قراءة ملف التوقيع.', 'error');
+      signatureDataUrl = null;
+    }
     refresh();
   });
 

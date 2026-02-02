@@ -56,7 +56,13 @@
   }
 
   async function exportPDF(){
+    const exportBtn = document.getElementById('btn-export');
+    const btnOriginalText = exportBtn ? exportBtn.textContent : '';
     try{
+      if (exportBtn){
+        exportBtn.disabled = true;
+        exportBtn.textContent = 'جاري التصدير…';
+      }
       showExportSpinner(true);
 
       // Collect latest state from app.js
@@ -86,16 +92,20 @@
       let lastErr = null;
       for (const a of attempts){
         try{
+          console.log(`[PDF] trying ${a.dpi} DPI…`);
           canvases = await window.renderLetterToCanvases(state, { dpi: a.dpi, backgroundSrc: a.bg });
-          if (canvases && canvases.length) break;
+          if (canvases && canvases.length){
+            console.log(`[PDF] success at ${a.dpi} DPI (${canvases.length} page(s))`);
+            break;
+          }
         }catch(e){
+          console.warn(`[PDF] ${a.dpi} DPI failed:`, e);
           lastErr = e;
         }
       }
       if (!canvases || !canvases.length){
         throw lastErr || new Error('no pages');
       }
-      if (!canvases || !canvases.length) throw new Error('no pages');
 
       // Convert canvases to JPEG bytes (progressive, good compression)
       const pages = [];
@@ -111,10 +121,18 @@
       downloadBlob(blob, filename);
       toast('تم تجهيز ملف PDF');
     }catch(err){
-      console.error(err);
-      toast('تعذر تصدير PDF. جرّب مرة أخرى.', 'error');
+      console.error('[PDF] export failed:', err);
+      const detail = err?.message || '';
+      const msg = detail.includes('memory') || detail.includes('alloc')
+        ? 'تعذر تصدير PDF (ذاكرة غير كافية). جرّب إغلاق تطبيقات أخرى وإعادة المحاولة.'
+        : 'تعذر تصدير PDF. جرّب مرة أخرى.';
+      toast(msg, 'error');
     }finally{
       showExportSpinner(false);
+      if (exportBtn){
+        exportBtn.disabled = false;
+        exportBtn.textContent = btnOriginalText;
+      }
     }
   }
 

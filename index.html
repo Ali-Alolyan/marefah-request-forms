@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#1e5aa8" />
+  <meta name="description" content="مولّد خطابات رسمية لجمعية معرفة — إنشاء خطابات A4 بالتاريخ الهجري والميلادي والتوقيع الرقمي وتصدير PDF" />
   <title>مولّد الخطابات - جمعية معرفة</title>
 
   <!-- Local fonts (offline-friendly). Files live in assets/fonts/ -->
@@ -140,7 +142,7 @@
 
           <label class="field">
             <span class="field__label">عدد المشفوعات</span>
-            <input id="attachments" class="field__control" inputmode="numeric" placeholder="0" />
+            <input id="attachments" class="field__control" type="number" step="1" min="0" inputmode="numeric" placeholder="0" />
           </label>
         </div>
 
@@ -148,7 +150,7 @@
         <div id="extra-general" class="extra">
           <label class="field">
             <span class="field__label">عدد المشفوعات (اختياري)</span>
-            <input id="attachmentsGeneral" class="field__control" inputmode="numeric" placeholder="0" />
+            <input id="attachmentsGeneral" class="field__control" type="number" step="1" min="0" inputmode="numeric" placeholder="0" />
           </label>
         </div>
       </div>
@@ -286,11 +288,11 @@
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
   <script src="js/hijri-converter.js"></script>
+  <script src="js/utils.js"></script>
   <script src="js/date-picker.js"></script>
   <script src="js/signature-enhanced.js"></script>
   <script src="js/theme.js"></script>
 
-  <script src="js/utils.js"></script>
   <script src="js/templates.js"></script>
   <script src="js/pagination.js"></script>
   <script src="js/canvas-renderer.js"></script>

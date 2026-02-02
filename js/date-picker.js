@@ -26,29 +26,6 @@ class DualCalendarPicker {
   }
 
   /**
-   * Internal helpers to avoid timezone off-by-one bugs when dealing with ISO-only dates (YYYY-MM-DD).
-   * - Using Date("YYYY-MM-DD") parses as UTC in modern browsers.
-   * - Using toISOString() converts local midnight to UTC, which can shift the day.
-   */
-  _toLocalISO(date){
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  }
-
-  _parseISOToLocalDate(iso){
-    const m = /^\s*(\d{4})-(\d{2})-(\d{2})\s*$/.exec(String(iso || ''));
-    if (!m) return null;
-    const y = Number(m[1]);
-    const mo = Number(m[2]);
-    const d = Number(m[3]);
-    // Noon local time prevents timezone/DST shifting when converted or formatted.
-    const dt = new Date(y, mo - 1, d, 12, 0, 0, 0);
-    return Number.isNaN(dt.getTime()) ? null : dt;
-  }
-
-  /**
    * Initialize the date picker
    */
   init() {
@@ -61,14 +38,14 @@ class DualCalendarPicker {
     // Set initial value if exists, otherwise set to today
     if (this.input.value) {
       // Parse ISO as *local* date.
-      this.selectedDate = this._parseISOToLocalDate(this.input.value) || new Date();
+      this.selectedDate = parseISOToLocalDate(this.input.value) || new Date();
     } else {
       // Set today's date as default
       this.selectedDate = new Date();
       this.selectedDate.setHours(12, 0, 0, 0); // Noon avoids off-by-one
 
       // Update input with today's date
-      const isoDate = this._toLocalISO(this.selectedDate);
+      const isoDate = toLocalISODate(this.selectedDate);
       this.input.value = isoDate;
 
       // Trigger change event for validation
@@ -250,7 +227,7 @@ class DualCalendarPicker {
       if (isSelected) classes += ' dcp-day-selected';
 
       // IMPORTANT: never use toISOString() here because it can shift the day for GMT+ timezones.
-      const isoDate = this._toLocalISO(gregorianDate);
+      const isoDate = toLocalISODate(gregorianDate);
 
       calendarHTML += `
         <div class="${classes}" data-date="${isoDate}" data-hijri="${this.currentHijriYear}-${this.currentHijriMonth}-${day}">
@@ -456,7 +433,7 @@ class DualCalendarPicker {
    */
   selectDate(dateStr) {
     // Parse ISO date as local date to avoid UTC parsing shifting the day.
-    this.selectedDate = this._parseISOToLocalDate(dateStr) || new Date();
+    this.selectedDate = parseISOToLocalDate(dateStr) || new Date();
 
     // Update input value (ISO format for standard form submission)
     this.input.value = dateStr;
