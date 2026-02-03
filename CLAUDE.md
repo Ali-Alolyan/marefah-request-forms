@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Arabic letter generator for Marefah Association (جمعية معرفة). Static web app (vanilla HTML/CSS/JS, no framework, no build step) that produces formal A4 letters with Hijri/Gregorian dates, digital signatures, and PDF export. Supports three letter types: general, custody request, and close-custody request.
+Arabic letter generator for Marefah Association (جمعية معرفة). Static web app (vanilla HTML/CSS/JS, no framework, no build step) that produces formal A4 letters with Hijri/Gregorian dates, digital signatures, and PDF export. Supports three letter types: general (`general`), custody request (`custody`), and close-custody request (`close_custody`).
 
 ## Development
 
@@ -14,7 +14,7 @@ python3 -m http.server 8080
 # Open http://localhost:8080/
 ```
 
-No build tools, no npm, no TypeScript. Edit files directly and reload the browser. There are no tests or linting configured. Deployed via GitHub Pages (push to `main` triggers `.github/workflows/static.yml`).
+No build tools, no npm, no TypeScript. Edit files directly and reload the browser. No tests or linting configured. Deployed via GitHub Pages (push to `main` triggers `.github/workflows/static.yml`).
 
 ## Architecture
 
@@ -35,10 +35,10 @@ No build tools, no npm, no TypeScript. Edit files directly and reload the browse
 - PDF export: `canvas-renderer.js` renders pages to canvas at 300/240 DPI → JPEG → download
 
 **Key modules:**
-- `app.js` — main controller, state management, cost center data (hardcoded `PF_OPTIONS`/`PRG_OPTIONS` arrays), draft save/load via localStorage (key: `marefah-letter-draft-v4`)
-- `auth.js` — Supabase authentication via `lookup_employee` RPC; stores session in localStorage (key: `marefah-auth-session-v1`); pre-fills applicantName/jobTitle as read-only on login
+- `app.js` — main controller, state management, cost center data (hardcoded `PF_OPTIONS`/`PRG_OPTIONS` arrays), draft save/load via localStorage
+- `auth.js` — Supabase authentication via `lookup_employee` RPC; pre-fills applicantName/jobTitle as read-only on login
 - `templates.js` — letter content generation per type, signature block rendering
-- `pagination.js` — dynamic A4 page splitting with header/footer overlays
+- `pagination.js` — dynamic A4 page splitting with header/footer overlays; binary search for text splitting across pages; 20-page safety limit
 - `canvas-renderer.js` — custom canvas-based PDF renderer handling Arabic RTL text wrapping
 - `hijri-converter.js` — Gregorian ↔ Hijri date conversion (Julian day algorithm)
 - `date-picker.js` — dual calendar picker (Gregorian + Hijri sync)
@@ -50,14 +50,63 @@ No build tools, no npm, no TypeScript. Edit files directly and reload the browse
 
 **Cross-module communication:** modules expose globals on `window` (e.g., `window.collectState()`, `window.exportPDF()`, `window.hijriConverter`, `window.signatureManager`, `window.authSession`, `window.refresh()`).
 
+## State Object (`collectState()`)
+
+The central data structure passed through the rendering pipeline:
+
+```
+type:            'general' | 'custody' | 'close_custody'
+subject:         String           // Letter subject line
+details:         String           // Letter body text
+applicantName:   String           // Read-only when authenticated
+jobTitle:        String           // Read-only when authenticated
+custodyAmount:   Number | null    // custody type only
+usedAmount:      Number | null    // close_custody type only
+remainingAmount: Number | null    // close_custody type only
+attachments:     Number           // Attachment count
+agreedToTerms:   Boolean          // Checkbox for custody types
+signatureDataUrl: String | null   // Canvas signature data URL
+costCenter:      String           // Format: "TAS-MFA" (not used for general)
+programNameAr:   String           // Arabic program name
+pfName:          String           // Portfolio name in Arabic
+dateISO:         String           // YYYY-MM-DD
+dateHijri:       String           // Formatted Hijri date string
+dateGregorian:   String           // Formatted Gregorian date string
+```
+
+## Cost Center Data
+
+Hardcoded in `app.js` as `PF_OPTIONS` (3 portfolios) and `PRG_OPTIONS` (16 programs). Format: `"PF-PRG"` (e.g., `"TAS-MFA"`).
+
+- **TAS** (تأسيس): MFA, GRS, HRF, AML, SPT
+- **OFQ** (أفق): LDR, INC, LQN, TRP
+- **ITH** (إثراء): QRH, CNE, EXH, NKB, FAM, INT
+
+## localStorage Keys
+
+| Key | Purpose | Lifetime |
+|-----|---------|----------|
+| `marefah-letter-draft-v4` | Form data draft (excludes signature) | Indefinite |
+| `marefah-auth-session-v1` | Authenticated user session | 24 hours |
+
+## Content Security Policy
+
+Defined in `index.html` `<meta>` tag. Key constraints:
+- `script-src 'self' https://cdn.jsdelivr.net` — only local scripts + Supabase CDN
+- `connect-src 'self' https://rlftalctuaybztrgegnb.supabase.co` — only Supabase API calls
+- `font-src 'self'` — fonts must be bundled locally
+- `img-src 'self' data: blob:` — allows canvas-generated data URLs
+- `object-src 'none'`
+
 ## Key Technical Considerations
 
 - **Timezone handling:** Always use local ISO dates (`YYYY-MM-DD`) with noon local time (`new Date(y, mo-1, d, 12, 0, 0, 0)`) to prevent UTC off-by-one bugs. Never rely on `new Date(string)` parsing.
-- **RTL text in canvas:** `canvas-renderer.js` has custom Arabic text wrapping logic — standard canvas `fillText` doesn't handle RTL correctly. LTR snippets (cost center codes, numbers) use Unicode bidi isolation markers (LRE/PDF).
+- **RTL text in canvas:** `canvas-renderer.js` has custom Arabic text wrapping logic — standard canvas `fillText` doesn't handle RTL correctly. LTR snippets (cost center codes, numbers) use Unicode bidi isolation markers (`\u202A`/`\u202C` LRE/PDF).
 - **iOS memory limits:** PDF export attempts 300 DPI first, falls back to 240 DPI on OOM. Mobile preview uses 150 DPI JPEG. iOS detection checks both UA string and `maxTouchPoints > 1` for iPadOS.
 - **Fonts must load first:** Letter rendering depends on IBM Plex Sans Arabic (bundled in `assets/fonts/`). Fonts are preloaded in `index.html`. PDF export waits for `document.fonts.ready` before rendering.
 - **Vendor directory:** `js/vendor/` contains only a README placeholder — PDF generation uses the custom canvas renderer, not external libraries.
 - **Authentication:** `auth.js` loads the Supabase JS client from CDN and calls `lookup_employee(p_account_code)` RPC. The login overlay blocks the form until authenticated. Session persists in localStorage; logout clears fields and re-shows the overlay.
+- **Page layout constants:** A4 = 210×297mm. Margins (mm): top 44, right 5, bottom 21, left 11. These are mirrored in both `pagination.js` (DOM) and `canvas-renderer.js` (PDF) — changes must be synchronized.
 
 ## CSS Customization
 
