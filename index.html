@@ -89,20 +89,28 @@
       </div>
 
       <div class="section" id="section-costcenter">
-        <div class="section__title">مركز التكلفة</div>
+        <div class="section__title">المشروع ومركز التكلفة</div>
+
+        <label class="field">
+          <span class="field__label">اسم المشروع</span>
+          <select id="projectName" class="field__control"></select>
+          <span class="field__hint">يُحدد تلقائيًا من المشاريع المسندة إليك</span>
+        </label>
 
         <div class="grid2">
           <label class="field">
             <span class="field__label">مركز التكلفة (Cost Center)</span>
-            <select id="costCenter" class="field__control"></select>
-            <span class="field__hint">اختيار مركز التكلفة يغني عن الأكواد التفصيلية واسم المشروع</span>
+            <input id="costCenter" class="field__control" readonly />
           </label>
 
           <label class="field">
             <span class="field__label">اسم البرنامج</span>
             <input id="programNameDisplay" class="field__control" readonly />
-            <span class="field__hint">يُحدد تلقائيًا من مركز التكلفة</span>
           </label>
+        </div>
+
+        <div id="no-projects-hint" class="field__hint" style="display:none;color:var(--md-sys-color-error,#b3261e)">
+          لا توجد مشاريع مسندة إليك. يمكنك إنشاء خطابات مخصصة فقط.
         </div>
       </div>
 

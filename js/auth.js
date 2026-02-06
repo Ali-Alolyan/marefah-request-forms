@@ -3,7 +3,8 @@
 (function () {
   const SUPABASE_URL = 'https://rlftalctuaybztrgegnb.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsZnRhbGN0dWF5Ynp0cmdlZ25iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwMzMzMDIsImV4cCI6MjA4NTYwOTMwMn0.ZhNWNj8U6Xn9jaWqgVX33IKcPPyz6ZuTTF3qycGanwo';
-  const SESSION_KEY = 'marefah-auth-session-v1';
+  const SESSION_KEY = 'marefah-auth-session-v2';
+  const OLD_SESSION_KEY = 'marefah-auth-session-v1';
   const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
   /* ---- Supabase client (with CDN failure detection) ---- */
@@ -46,6 +47,7 @@
 
   function clearSession() {
     localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(OLD_SESSION_KEY);
   }
 
   /* ---- DOM refs ---- */
@@ -122,9 +124,31 @@
 
   function applySession(session) {
     const nameEl = document.getElementById('applicantName');
-    const titleEl = document.getElementById('jobTitle');
     if (nameEl) { nameEl.value = session.full_name; nameEl.readOnly = true; }
-    if (titleEl) { titleEl.value = session.job_title; titleEl.readOnly = true; }
+
+    // Job title: if secondary title exists, replace input with a select dropdown
+    var titleContainer = document.getElementById('jobTitle');
+    if (titleContainer && session.job_title_secondary) {
+      // Replace the input with a select element
+      var sel = document.createElement('select');
+      sel.id = 'jobTitle';
+      sel.className = titleContainer.className;
+      var opt1 = document.createElement('option');
+      opt1.value = session.job_title;
+      opt1.textContent = session.job_title;
+      sel.appendChild(opt1);
+      var opt2 = document.createElement('option');
+      opt2.value = session.job_title_secondary;
+      opt2.textContent = session.job_title_secondary;
+      sel.appendChild(opt2);
+      titleContainer.parentNode.replaceChild(sel, titleContainer);
+      sel.addEventListener('change', function() {
+        if (typeof window.refresh === 'function') window.refresh();
+      });
+    } else if (titleContainer) {
+      titleContainer.value = session.job_title;
+      titleContainer.readOnly = true;
+    }
 
     const logoutBtn = getLogoutBtn();
     if (logoutBtn) logoutBtn.style.display = '';
@@ -132,9 +156,20 @@
 
   function clearFields() {
     const nameEl = document.getElementById('applicantName');
-    const titleEl = document.getElementById('jobTitle');
     if (nameEl) { nameEl.value = ''; nameEl.readOnly = false; }
-    if (titleEl) { titleEl.value = ''; titleEl.readOnly = false; }
+
+    // If jobTitle was replaced with a select, restore it to an input
+    var titleEl = document.getElementById('jobTitle');
+    if (titleEl && titleEl.tagName === 'SELECT') {
+      var inp = document.createElement('input');
+      inp.id = 'jobTitle';
+      inp.className = titleEl.className;
+      inp.placeholder = 'مثال: مدير إدارة البرامج والمشاريع';
+      titleEl.parentNode.replaceChild(inp, titleEl);
+    } else if (titleEl) {
+      titleEl.value = '';
+      titleEl.readOnly = false;
+    }
 
     const logoutBtn = getLogoutBtn();
     if (logoutBtn) logoutBtn.style.display = 'none';
@@ -173,11 +208,17 @@
       const session = {
         account_code: codeNum,
         full_name: data.full_name,
-        job_title: data.job_title
+        job_title: data.job_title,
+        job_title_secondary: data.job_title_secondary || null,
+        projects: data.projects || []
       };
       saveSession(session);
       applySession(session);
       hideOverlay();
+
+      // Load projects data and rebuild dropdown
+      if (typeof window.loadSessionProjects === 'function') window.loadSessionProjects(session);
+      if (typeof window.buildProjectDropdown === 'function') window.buildProjectDropdown();
 
       // Trigger a refresh so the preview updates with the new name/title
       if (typeof window.refresh === 'function') window.refresh();
@@ -193,6 +234,12 @@
   function logout() {
     clearSession();
     clearFields();
+
+    // Clear projects data and rebuild empty dropdown
+    if (typeof window.loadSessionProjects === 'function') window.loadSessionProjects(null);
+    if (typeof window.buildProjectDropdown === 'function') window.buildProjectDropdown();
+    if (typeof window.resetEditorState === 'function') window.resetEditorState();
+
     showOverlay();
 
     // Clear the code input for next login
@@ -238,6 +285,9 @@
 
   function initAuth() {
     bindLoginForm();
+
+    // Clear old session format
+    localStorage.removeItem(OLD_SESSION_KEY);
 
     // If Supabase CDN failed to load, show error and disable login
     if (supabaseUnavailable) {

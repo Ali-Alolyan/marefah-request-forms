@@ -36,18 +36,29 @@ function renderLetterBlocks(state){
   if (state.type !== 'general') {
     const cc = document.createElement('div');
     cc.className = 'letterPara';
-    cc.innerHTML = `
-      <span class="letterLabel">مركز التكلفة:</span>
-      <span class="inlineCode" dir="ltr">${escapeHtml(state.costCenter || '—')}</span>
-      ${state.programNameAr ? `&nbsp;&nbsp;|&nbsp;&nbsp;<span class="letterLabel">البرنامج:</span> ${escapeHtml(state.programNameAr)}` : ''}
-    `;
+    let ccHtml = `<span class="letterLabel">مركز التكلفة:</span>
+      <span class="inlineCode" dir="ltr">${escapeHtml(state.costCenter || '—')}</span>`;
+    if (state.programNameAr) {
+      ccHtml += `&nbsp;&nbsp;|&nbsp;&nbsp;<span class="letterLabel">البرنامج:</span> ${escapeHtml(state.programNameAr)}`;
+    }
+    if (state.projectName) {
+      ccHtml += `&nbsp;&nbsp;|&nbsp;&nbsp;<span class="letterLabel">المشروع:</span> ${escapeHtml(state.projectName)}`;
+    }
+    cc.innerHTML = ccHtml;
     blocks.push(cc);
   }
 
   if (state.type === 'custody'){
-    const programPart = state.programNameAr ? `لبرنامج <b>${escapeHtml(state.programNameAr)}</b>` : 'للبرنامج المعني';
+    let custodyDesc;
+    if (state.projectName && state.programNameAr) {
+      custodyDesc = `لمشروع <b>${escapeHtml(state.projectName)}</b> ضمن برنامج <b>${escapeHtml(state.programNameAr)}</b>`;
+    } else if (state.programNameAr) {
+      custodyDesc = `لبرنامج <b>${escapeHtml(state.programNameAr)}</b>`;
+    } else {
+      custodyDesc = 'للبرنامج المعني';
+    }
     blocks.push(paragraph(
-      `آمل من سعادتكم التكرم بالموافقة على صرف عهدة مالية ${programPart}.`
+      `آمل من سعادتكم التكرم بالموافقة على صرف عهدة مالية ${custodyDesc}.`
     ));
 
     blocks.push(labelAndText('تفاصيل الطلب:', state.details));
@@ -59,9 +70,16 @@ function renderLetterBlocks(state){
   }
 
   if (state.type === 'close_custody'){
-    const programPart = state.programNameAr ? `الخاصة ببرنامج <b>${escapeHtml(state.programNameAr)}</b>` : 'الخاصة بالبرنامج المعني';
+    let closeDesc;
+    if (state.projectName && state.programNameAr) {
+      closeDesc = `الخاصة بمشروع <b>${escapeHtml(state.projectName)}</b> ضمن برنامج <b>${escapeHtml(state.programNameAr)}</b>`;
+    } else if (state.programNameAr) {
+      closeDesc = `الخاصة ببرنامج <b>${escapeHtml(state.programNameAr)}</b>`;
+    } else {
+      closeDesc = 'الخاصة بالبرنامج المعني';
+    }
     blocks.push(paragraph(
-      `أرفع لسعادتكم طلب إغلاق عهدة مالية ${programPart}، وذلك بعد إتمام الصرف وفق التفاصيل أدناه.`
+      `أرفع لسعادتكم طلب إغلاق عهدة مالية ${closeDesc}، وذلك بعد إتمام الصرف وفق التفاصيل أدناه.`
     ));
 
     const used = state.usedAmount != null ? `${formatNumberArabic(state.usedAmount)} <span class="icon-saudi_riyal"></span>` : '—';
@@ -104,6 +122,13 @@ function labelAndText(label, text){
   wrap.className = 'letterPara';
 
   if (!text) return wrap;
+
+  if (label) {
+    const labelEl = document.createElement('div');
+    labelEl.className = 'letterLabel';
+    labelEl.textContent = label;
+    wrap.appendChild(labelEl);
+  }
 
   const body = document.createElement('div');
   body.style.whiteSpace = 'pre-wrap';

@@ -122,12 +122,20 @@
     if (type !== 'general'){
       const cc = state.costCenter ? ltrWrap(state.costCenter) : '—';
       const program = state.programNameAr ? ` | البرنامج: ${state.programNameAr}` : '';
-      blocks.push({ kind: 'para', label: 'مركز التكلفة:', text: `${cc}${program}`, ltrLabelValue: true });
+      const project = state.projectName ? ` | المشروع: ${state.projectName}` : '';
+      blocks.push({ kind: 'para', label: 'مركز التكلفة:', text: `${cc}${program}${project}`, ltrLabelValue: true });
     }
 
     if (type === 'custody'){
-      const programPart = state.programNameAr ? `لبرنامج ${state.programNameAr}` : 'للبرنامج المعني';
-      blocks.push({ kind: 'para', text: `آمل من سعادتكم التكرم بالموافقة على صرف عهدة مالية ${programPart}.` });
+      let custodyDesc;
+      if (state.projectName && state.programNameAr) {
+        custodyDesc = `لمشروع ${state.projectName} ضمن برنامج ${state.programNameAr}`;
+      } else if (state.programNameAr) {
+        custodyDesc = `لبرنامج ${state.programNameAr}`;
+      } else {
+        custodyDesc = 'للبرنامج المعني';
+      }
+      blocks.push({ kind: 'para', text: `آمل من سعادتكم التكرم بالموافقة على صرف عهدة مالية ${custodyDesc}.` });
       if (state.details) blocks.push({ kind: 'plaintext', text: state.details });
 
       const amt = ensureNumber(state.custodyAmount);
@@ -140,8 +148,15 @@
     }
 
     if (type === 'close_custody'){
-      const programPart = state.programNameAr ? `الخاصة ببرنامج ${state.programNameAr}` : 'الخاصة بالبرنامج المعني';
-      blocks.push({ kind: 'para', text: `أرفع لسعادتكم طلب إغلاق عهدة مالية ${programPart}، وذلك بعد إتمام الصرف وفق التفاصيل أدناه.` });
+      let closeDesc;
+      if (state.projectName && state.programNameAr) {
+        closeDesc = `الخاصة بمشروع ${state.projectName} ضمن برنامج ${state.programNameAr}`;
+      } else if (state.programNameAr) {
+        closeDesc = `الخاصة ببرنامج ${state.programNameAr}`;
+      } else {
+        closeDesc = 'الخاصة بالبرنامج المعني';
+      }
+      blocks.push({ kind: 'para', text: `أرفع لسعادتكم طلب إغلاق عهدة مالية ${closeDesc}، وذلك بعد إتمام الصرف وفق التفاصيل أدناه.` });
 
       const used = ensureNumber(state.usedAmount);
       const remaining = ensureNumber(state.remainingAmount);

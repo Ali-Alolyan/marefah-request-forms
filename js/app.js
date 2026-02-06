@@ -25,41 +25,12 @@ let manualZoom = 1;
 // Initialize global converter for date-picker.js
 window.hijriConverter = new HijriConverter();
 
-/* Codebook (Appendix 1) extracted from "القرار رقم 1 نسخة ثانية" */
-const PF_OPTIONS = [
-  { code:'TAS', name:'تأسيس' },
-  { code:'OFQ', name:'أفق' },
-  { code:'ITH', name:'إثراء' },
-];
-
-// Programs are anchored to the portfolio structure in المادة (4)
-const PRG_OPTIONS = [
-  // (أ) محفظة تأسيس (Tasees)
-  { pf:'TAS', code:'MFA', name:'أكاديمية معرفة' },
-  { pf:'TAS', code:'GRS', name:'غرس' },
-  { pf:'TAS', code:'HRF', name:'حرف' },
-  { pf:'TAS', code:'AML', name:'محو الأمية' },
-  { pf:'TAS', code:'SPT', name:'بدعمكم نتعلم' },
-
-  // (ب) محفظة أفق (Ofuq)
-  { pf:'OFQ', code:'LDR', name:'أكاديمية قادة' },
-  { pf:'OFQ', code:'INC', name:'تطوير المشاريع التعليمية والتربوية (حاضنة)' },
-  { pf:'OFQ', code:'LQN', name:'لبنات القيم' },
-  { pf:'OFQ', code:'TRP', name:'الرحلات التعليمية' },
-
-  // (ج) محفظة إثراء (Ithra)
-  { pf:'ITH', code:'QRH', name:'أكاديمية القراءة' },
-  { pf:'ITH', code:'CNE', name:'التعليم المستمر' },
-  { pf:'ITH', code:'EXH', name:'المعارض التعليمية' },
-  { pf:'ITH', code:'NKB', name:'النخبة للتنافس الثقافي' },
-  { pf:'ITH', code:'FAM', name:'الأسرة المتعلمة' },
-  { pf:'ITH', code:'INT', name:'اهتمامات معرفية' },
-];
+/* Session-based project data (populated from auth session) */
+let SESSION_PROJECTS = []; // Array of { project_id, project_name, program_name, cost_center, portfolio_name }
 
 const el = (id) => document.getElementById(id);
 
 let signatureDataUrl = null;
-let COST_CENTER_LIST = [];
 
 // Attachment files storage (File objects, not persisted to localStorage)
 let attachmentFiles = [];
@@ -70,44 +41,90 @@ const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10 MB
 
 
 function init(){
-  buildCostCenters();
-  bindCostCenter();
   bindDatePicker();
   bindUI();
   bindMobileTabs();
   initAttachmentsUI();
-  setDefaults();
 
-  // Apply authenticated session (name + job title as read-only)
+  // Apply authenticated session (name + job title as read-only, load projects)
   var session = window.authSession;
   if (session && window.authApplySession) {
     window.authApplySession(session);
+    loadSessionProjects(session);
   }
+
+  buildProjectDropdown();
+  setDefaults();
 
   refresh();
 }
 
-function buildCostCenters(){
-  const pfMap = new Map(PF_OPTIONS.map(x => [x.code, x.name]));
-  COST_CENTER_LIST = PRG_OPTIONS.map(p => {
-    const value = `${p.pf}-${p.code}`;
-    const pfName = pfMap.get(p.pf) || p.pf;
-    const label = `${value} — ${pfName} / ${p.name}`;
-    return { value, pf:p.pf, prg:p.code, pfName, programNameAr:p.name, label };
+function loadSessionProjects(session) {
+  SESSION_PROJECTS = (session && session.projects) ? session.projects : [];
+}
+
+function typeNeedsProjects(type){
+  return type === 'custody' || type === 'close_custody';
+}
+
+function getAllowedLetterType(){
+  var selected = el('letterType')?.value || 'general';
+  if (!SESSION_PROJECTS.length && typeNeedsProjects(selected)) {
+    return 'general';
+  }
+  return selected;
+}
+
+var _projectDropdownBound = false;
+
+function buildProjectDropdown(){
+  var sel = el('projectName');
+  if (!sel) return;
+
+  sel.innerHTML = '';
+
+  if (!SESSION_PROJECTS.length) {
+    var opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = 'لا توجد مشاريع';
+    sel.appendChild(opt);
+    sel.disabled = true;
+    el('costCenter').value = '';
+    el('programNameDisplay').value = '';
+    return;
+  }
+
+  sel.disabled = false;
+  SESSION_PROJECTS.forEach(function(p) {
+    var opt = document.createElement('option');
+    opt.value = String(p.project_id);
+    opt.textContent = p.project_name + ' — ' + p.program_name;
+    opt.dataset.costCenter = p.cost_center;
+    opt.dataset.programName = p.program_name;
+    opt.dataset.projectName = p.project_name;
+    opt.dataset.portfolioName = p.portfolio_name;
+    sel.appendChild(opt);
   });
+
+  if (!_projectDropdownBound) {
+    sel.addEventListener('change', function() { updateFromProject(); refresh(); });
+    _projectDropdownBound = true;
+  }
+  updateFromProject();
 }
 
-function bindCostCenter(){
-  const sel = el('costCenter');
-  sel.innerHTML = COST_CENTER_LIST.map(o => `<option value="${o.value}">${escapeHtml(o.label)}</option>`).join('');
-  sel.addEventListener('change', () => { updateProgramName(); refresh(); });
-  updateProgramName();
-}
-
-function updateProgramName(){
-  const cc = String(el('costCenter').value || '').trim();
-  const found = COST_CENTER_LIST.find(x => x.value === cc);
-  el('programNameDisplay').value = found?.programNameAr || '';
+function updateFromProject(){
+  var sel = el('projectName');
+  if (!sel || !sel.value) {
+    el('costCenter').value = '';
+    el('programNameDisplay').value = '';
+    return;
+  }
+  var opt = sel.selectedOptions[0];
+  if (opt) {
+    el('costCenter').value = opt.dataset.costCenter || '';
+    el('programNameDisplay').value = opt.dataset.programName || '';
+  }
 }
 
 function bindDatePicker(){
@@ -119,7 +136,7 @@ function bindDatePicker(){
 
 function bindUI(){
   const watchIds = [
-    'letterType','costCenter',
+    'letterType','projectName',
     'applicantName','jobTitle','subject','details',
     'custodyAmount','usedAmount','remainingAmount','attachments','attachmentsGeneral',
     'agreeTerms',
@@ -307,15 +324,47 @@ function setDefaults(){
     window.dualDatePicker.updateDisplay();
   }
 
-  // Default cost center: first option
-  if (!el('costCenter').value){
-    el('costCenter').value = COST_CENTER_LIST[0]?.value || '';
-    updateProgramName();
-  }
+  // Project dropdown defaults to first project (auto-fills cost center)
+  updateFromProject();
 
   // Ensure correct initial UI (cost center + signature mode)
   applyLetterTypeUI();
   applySignatureModeUI();
+}
+
+function resetEditorState(){
+  var letterType = el('letterType');
+  if (letterType) letterType.value = 'general';
+
+  ['subject','details','custodyAmount','usedAmount','remainingAmount','attachments','attachmentsGeneral'].forEach(function(id){
+    var node = el(id);
+    if (node) node.value = '';
+  });
+
+  var agreeTerms = el('agreeTerms');
+  if (agreeTerms) agreeTerms.checked = false;
+
+  clearAttachments();
+
+  signatureDataUrl = null;
+  var signatureFile = el('signatureFile');
+  if (signatureFile) signatureFile.value = '';
+  var signatureMode = el('signatureMode');
+  if (signatureMode) signatureMode.value = 'canvas';
+  if (window.signatureManager && typeof window.signatureManager.clear === 'function'){
+    window.signatureManager.clear();
+  }
+
+  var iso = toLocalISODate(new Date());
+  if (el('date')) el('date').value = iso;
+  if (window.dualDatePicker){
+    window.dualDatePicker.selectedDate = parseISOToLocalDate(iso) || new Date();
+    window.dualDatePicker.updateDisplay();
+  }
+
+  applySignatureModeUI();
+  applyLetterTypeUI();
+  refresh();
 }
 
 function readFileAsDataUrl(file){
@@ -650,7 +699,7 @@ function updateAttachmentCount(){
   const totalPages = attachmentFiles.reduce((sum, att) => sum + (att.pageCount || 1), 0);
 
   // Update the appropriate field based on letter type
-  const type = el('letterType')?.value || 'general';
+  const type = getAllowedLetterType();
   if (type === 'close_custody'){
     el('attachments').value = totalPages;
   } else if (type === 'general'){
@@ -687,14 +736,16 @@ function toggleAnimated(node, show){
 
 function computeCostCenter(){
   // For general letters we hide cost center entirely.
-  if (el('letterType').value === 'general'){
-    return { costCenter: '', programNameAr: '', pfName: '' };
+  if (getAllowedLetterType() === 'general'){
+    return { costCenter: '', programNameAr: '', pfName: '', projectName: '' };
   }
-  const costCenter = String(el('costCenter').value || '').trim();
-  const found = COST_CENTER_LIST.find(x => x.value === costCenter);
-  const programNameAr = found?.programNameAr || '';
-  const pfName = found?.pfName || '';
-  return { costCenter, programNameAr, pfName };
+  var sel = el('projectName');
+  var opt = sel && sel.selectedOptions ? sel.selectedOptions[0] : null;
+  var costCenter = (opt && opt.dataset.costCenter) || '';
+  var programNameAr = (opt && opt.dataset.programName) || '';
+  var pfName = (opt && opt.dataset.portfolioName) || '';
+  var projectName = (opt && opt.dataset.projectName) || '';
+  return { costCenter, programNameAr, pfName, projectName };
 }
 
 function computeDates(){
@@ -708,9 +759,9 @@ function computeDates(){
 }
 
 function collectState(){
-  const type = el('letterType').value;
-  toggleExtraSections(type);
   applyLetterTypeUI();
+  const type = getAllowedLetterType();
+  toggleExtraSections(type);
 
   const cc = computeCostCenter();
   const dates = computeDates();
@@ -771,8 +822,11 @@ function collectState(){
     signatureDataUrl: sig,
 
     attachmentsText,
-    attachmentFiles: attachmentFiles.slice(), // Copy of attachment files array
-    ...cc,
+    attachmentFiles: attachmentFiles.slice(),
+    projectName: cc.projectName || '',
+    costCenter: cc.costCenter || '',
+    programNameAr: cc.programNameAr || '',
+    pfName: cc.pfName || '',
     ...dates
   };
 }
@@ -832,10 +886,15 @@ function applyResponsiveScale(){
 function saveDraft(){
   const state = collectState();
 
-  // Store without signature data for privacy/performance
-  const safe = { ...state, signatureDataUrl: null };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
-  showToast('تم حفظ المسودة.', 'success');
+  // Store without binary/large data to avoid localStorage quota failures.
+  const safe = { ...state, signatureDataUrl: null, attachmentFiles: [] };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
+    showToast('تم حفظ المسودة.', 'success');
+  } catch (e) {
+    console.warn('Failed to save draft:', e);
+    showToast('تعذر حفظ المسودة بسبب امتلاء سعة التخزين في المتصفح.', 'error');
+  }
 }
 
 function loadDraft(){
@@ -862,9 +921,23 @@ function loadDraft(){
 
   el('letterType').value = state.type || 'general';
 
-  // Cost center
-  el('costCenter').value = state.costCenter || el('costCenter').value;
-  updateProgramName();
+  // Drafts do not persist binary attachments, so clear any current in-memory files.
+  clearAttachments();
+
+  // Restore project selection if possible (match by project name)
+  if (state.projectName) {
+    var projSel = el('projectName');
+    if (projSel) {
+      var found = false;
+      Array.from(projSel.options).forEach(function(opt) {
+        if (opt.dataset.projectName === state.projectName) {
+          projSel.value = opt.value;
+          found = true;
+        }
+      });
+      if (found) updateFromProject();
+    }
+  }
 
   // Skip restoring name/title if user is logged in (auth data takes priority)
   if (!window.authSession) {
@@ -877,8 +950,8 @@ function loadDraft(){
   el('custodyAmount').value = state.custodyAmount ?? '';
   el('usedAmount').value = state.usedAmount ?? '';
   el('remainingAmount').value = state.remainingAmount ?? '';
-  el('attachments').value = state.attachments ?? '';
-  el('attachmentsGeneral').value = state.attachments ?? '';
+  el('attachments').value = '';
+  el('attachmentsGeneral').value = '';
 
   // Date
   if (state.dateISO){
@@ -893,16 +966,40 @@ function loadDraft(){
   // Signature: not restoring data URL (user re-adds)
   signatureDataUrl = null;
 
-  showToast('تم استرجاع المسودة (يرجى إعادة التوقيع).', 'success');
+  showToast('تم استرجاع المسودة (يرجى إعادة التوقيع ورفع المرفقات).', 'success');
   refresh();
 }
 
 function applyLetterTypeUI(){
-  const type = el('letterType')?.value || 'general';
+  var type = el('letterType')?.value || 'general';
   const costSection = el('section-costcenter');
+  const hasProjects = SESSION_PROJECTS.length > 0;
+  const noProjectsHint = el('no-projects-hint');
+
+  // Disable custody/close_custody options if user has no projects
+  var letterTypeSel = el('letterType');
+  if (letterTypeSel) {
+    Array.from(letterTypeSel.options).forEach(function(opt) {
+      if (opt.value === 'custody' || opt.value === 'close_custody') {
+        opt.disabled = !hasProjects;
+      }
+    });
+  }
+
+  // Defensive guard: if selected type requires projects but none exist, force general.
+  if (!hasProjects && typeNeedsProjects(type)) {
+    if (letterTypeSel) letterTypeSel.value = 'general';
+    type = 'general';
+  }
+
   if (costSection){
     toggleAnimated(costSection, type !== 'general');
   }
+
+  if (noProjectsHint) {
+    noProjectsHint.style.display = (!hasProjects && type !== 'general') ? '' : 'none';
+  }
+
   // Re-render attachment previews to the correct container when type changes
   renderAttachmentPreviews();
   updateAttachmentCount();
@@ -917,7 +1014,15 @@ function applySignatureModeUI(){
 }
 
 function validateBeforeExport(){
-  const type = el('letterType')?.value || 'general';
+  const selectedType = el('letterType')?.value || 'general';
+  if (!SESSION_PROJECTS.length && typeNeedsProjects(selectedType)) {
+    showToast('خطابات العهدة تتطلب مشروعًا مسندًا إلى حسابك.', 'error');
+    if (el('letterType')) el('letterType').value = 'general';
+    applyLetterTypeUI();
+    return false;
+  }
+
+  const type = getAllowedLetterType();
   const missing = [];
 
   if (!el('date').value) missing.push('التاريخ');
@@ -951,5 +1056,8 @@ function validateBeforeExport(){
 window.collectState = collectState;
 window.showToast = showToast;
 window.refresh = refresh;
+window.loadSessionProjects = loadSessionProjects;
+window.buildProjectDropdown = buildProjectDropdown;
+window.resetEditorState = resetEditorState;
 
 document.addEventListener('DOMContentLoaded', init);
