@@ -24,6 +24,157 @@
 
   /* ---- Session helpers ---- */
 
+  function toCleanString(value) {
+    if (value == null) return '';
+    return String(value).trim();
+  }
+
+  function firstNonEmpty(obj, keys) {
+    if (!obj || typeof obj !== 'object') return '';
+    for (const key of keys) {
+      const val = toCleanString(obj[key]);
+      if (val) return val;
+    }
+    return '';
+  }
+
+  function firstNonEmptyFromRows(rows, keys) {
+    for (const row of rows) {
+      const val = firstNonEmpty(row, keys);
+      if (val) return val;
+    }
+    return '';
+  }
+
+  function normalizeProjectRow(row) {
+    if (!row || typeof row !== 'object') return null;
+
+    const projectId = toCleanString(
+      row.project_id ??
+      row.projectId ??
+      row.id ??
+      row.project?.project_id ??
+      row.project?.id
+    );
+    const projectName = toCleanString(
+      row.project_name ??
+      row.projectName ??
+      row.project?.project_name ??
+      row.project?.name
+    );
+    const programName = toCleanString(
+      row.program_name ??
+      row.programName ??
+      row.program?.program_name ??
+      row.program?.name
+    );
+    const costCenter = toCleanString(
+      row.cost_center ??
+      row.costCenter ??
+      row.project?.cost_center ??
+      row.project?.costCenter
+    );
+    const portfolioName = toCleanString(
+      row.portfolio_name ??
+      row.portfolioName ??
+      row.portfolio?.portfolio_name ??
+      row.portfolio?.name
+    );
+
+    if (!projectId && !projectName && !programName && !costCenter && !portfolioName) {
+      return null;
+    }
+
+    return {
+      project_id: projectId || `${projectName || 'project'}|${costCenter || 'cc'}`,
+      project_name: projectName,
+      program_name: programName,
+      cost_center: costCenter,
+      portfolio_name: portfolioName
+    };
+  }
+
+  function dedupeProjects(items) {
+    const out = [];
+    const seen = new Set();
+    for (const item of items) {
+      if (!item) continue;
+      const key = [item.project_id, item.cost_center, item.project_name].join('|');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(item);
+    }
+    return out;
+  }
+
+  function normalizeProjects(raw) {
+    if (!raw) return [];
+
+    if (typeof raw === 'string') {
+      try {
+        return normalizeProjects(JSON.parse(raw));
+      } catch (_) {
+        return [];
+      }
+    }
+
+    if (Array.isArray(raw)) {
+      return dedupeProjects(raw.map(normalizeProjectRow).filter(Boolean));
+    }
+
+    if (typeof raw === 'object') {
+      const nested = raw.projects ?? raw.employee_projects ?? raw.assigned_projects ?? raw.user_projects;
+      if (nested != null && nested !== raw) {
+        return normalizeProjects(nested);
+      }
+
+      const single = normalizeProjectRow(raw);
+      if (single) return [single];
+
+      const values = Object.values(raw);
+      if (values.length) return normalizeProjects(values);
+    }
+
+    return [];
+  }
+
+  function normalizeLookupPayload(data) {
+    let rows = [];
+    if (Array.isArray(data)) {
+      rows = data.filter(r => r && typeof r === 'object');
+    } else if (data && typeof data === 'object') {
+      rows = [data];
+    }
+    if (!rows.length) return null;
+
+    const head = rows[0];
+    const fullName = firstNonEmptyFromRows(rows, ['full_name', 'employee_name', 'name']);
+    const jobTitle = firstNonEmptyFromRows(rows, ['job_title', 'title', 'position']);
+    const jobTitleSecondary = firstNonEmptyFromRows(rows, ['job_title_secondary', 'secondary_job_title', 'title_secondary']) || null;
+
+    let projects = normalizeProjects(
+      head.projects ?? head.employee_projects ?? head.assigned_projects ?? head.user_projects
+    );
+
+    // Fallback: some RPCs return one row per project instead of a nested projects array.
+    if (!projects.length && rows.length > 1) {
+      projects = normalizeProjects(rows);
+    }
+
+    // Fallback: some RPCs return single-row payload with project fields on the row itself.
+    if (!projects.length) {
+      const single = normalizeProjectRow(head);
+      if (single) projects = [single];
+    }
+
+    return {
+      full_name: fullName,
+      job_title: jobTitle,
+      job_title_secondary: jobTitleSecondary,
+      projects
+    };
+  }
+
   function saveSession(data) {
     data._savedAt = Date.now();
     localStorage.setItem(SESSION_KEY, JSON.stringify(data));
@@ -40,6 +191,7 @@
         clearSession();
         return null;
       }
+      s.projects = normalizeProjects(s.projects);
       return s;
     } catch (_) { /* corrupt */ }
     return null;
@@ -205,12 +357,18 @@
         return;
       }
 
+      const normalized = normalizeLookupPayload(data);
+      if (!normalized || !normalized.full_name || !normalized.job_title) {
+        showError('تعذر قراءة بيانات الحساب. يرجى المحاولة مرة أخرى.');
+        return;
+      }
+
       const session = {
         account_code: codeNum,
-        full_name: data.full_name,
-        job_title: data.job_title,
-        job_title_secondary: data.job_title_secondary || null,
-        projects: data.projects || []
+        full_name: normalized.full_name,
+        job_title: normalized.job_title,
+        job_title_secondary: normalized.job_title_secondary || null,
+        projects: normalized.projects
       };
       saveSession(session);
       applySession(session);

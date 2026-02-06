@@ -59,8 +59,98 @@ function init(){
   refresh();
 }
 
+function normalizeProjectEntry(entry) {
+  if (!entry || typeof entry !== 'object') return null;
+
+  var projectId = String(
+    entry.project_id ??
+    entry.projectId ??
+    entry.id ??
+    entry.project?.project_id ??
+    entry.project?.id ??
+    ''
+  ).trim();
+  var projectName = String(
+    entry.project_name ??
+    entry.projectName ??
+    entry.project?.project_name ??
+    entry.project?.name ??
+    ''
+  ).trim();
+  var programName = String(
+    entry.program_name ??
+    entry.programName ??
+    entry.program?.program_name ??
+    entry.program?.name ??
+    ''
+  ).trim();
+  var costCenter = String(
+    entry.cost_center ??
+    entry.costCenter ??
+    entry.project?.cost_center ??
+    entry.project?.costCenter ??
+    ''
+  ).trim();
+  var portfolioName = String(
+    entry.portfolio_name ??
+    entry.portfolioName ??
+    entry.portfolio?.portfolio_name ??
+    entry.portfolio?.name ??
+    ''
+  ).trim();
+
+  if (!projectId && !projectName && !programName && !costCenter && !portfolioName) {
+    return null;
+  }
+
+  return {
+    project_id: projectId || `${projectName || 'project'}|${costCenter || 'cc'}`,
+    project_name: projectName,
+    program_name: programName,
+    cost_center: costCenter,
+    portfolio_name: portfolioName
+  };
+}
+
+function normalizeSessionProjects(raw) {
+  if (!raw) return [];
+
+  if (typeof raw === 'string') {
+    try {
+      return normalizeSessionProjects(JSON.parse(raw));
+    } catch (_) {
+      return [];
+    }
+  }
+
+  if (Array.isArray(raw)) {
+    var seen = new Set();
+    var out = [];
+    raw.forEach(function(item) {
+      var normalized = normalizeProjectEntry(item);
+      if (!normalized) return;
+      var key = [normalized.project_id, normalized.cost_center, normalized.project_name].join('|');
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(normalized);
+    });
+    return out;
+  }
+
+  if (typeof raw === 'object') {
+    var nested = raw.projects ?? raw.employee_projects ?? raw.assigned_projects ?? raw.user_projects;
+    if (nested != null && nested !== raw) {
+      return normalizeSessionProjects(nested);
+    }
+    var single = normalizeProjectEntry(raw);
+    if (single) return [single];
+  }
+
+  return [];
+}
+
 function loadSessionProjects(session) {
-  SESSION_PROJECTS = (session && session.projects) ? session.projects : [];
+  SESSION_PROJECTS = normalizeSessionProjects(session && session.projects);
 }
 
 function typeNeedsProjects(type){
