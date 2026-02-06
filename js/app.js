@@ -934,6 +934,12 @@ function validateBeforeExport(){
     }
   }
 
+  // Require agreement checkbox for custody-related letters
+  if ((type === 'custody' || type === 'close_custody') && !el('agreeTerms')?.checked) {
+    showToast('يجب الموافقة على الإقرار والتعهد قبل التصدير', 'error');
+    return false;
+  }
+
   if (missing.length) {
     showToast('حقول مطلوبة: ' + missing.join('، '), 'error');
     return false;
