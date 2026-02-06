@@ -3,12 +3,19 @@
  * - No external libraries
  * - Works on iPhone Safari/Chrome and desktop Safari/Chrome
  * - Renders pages to canvas at a stable DPI, then builds a PDF with embedded JPEG pages.
+ * - Supports image and PDF file attachments appended after letter pages.
  */
 
 (function(){
   'use strict';
 
   const A4_PT = { w: 595.2756, h: 841.8898 }; // 210×297mm @ 72pt/in
+
+  // A4 dimensions in pixels at different DPI levels
+  const A4_PX = {
+    300: { w: 2480, h: 3508 },  // Close to 2482x3510 used by canvas-renderer
+    240: { w: 1984, h: 2806 }   // Close to 1986x2808
+  };
 
   function isIOS(){
     const ua = navigator.userAgent || '';
@@ -55,6 +62,162 @@
     setTimeout(()=>URL.revokeObjectURL(url), 30_000);
   }
 
+  /**
+   * Load an image from a File object
+   */
+  function loadImageFromFile(file){
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(img);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Failed to load image'));
+      };
+      img.src = url;
+    });
+  }
+
+  /**
+   * Process an image attachment: scale to fit A4 page
+   */
+  async function processImageAttachment(file, targetW, targetH){
+    const img = await loadImageFromFile(file);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+
+    // White background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, targetW, targetH);
+
+    // Calculate scaling to fit within margins (5% padding on each side)
+    const padding = 0.05;
+    const availW = targetW * (1 - padding * 2);
+    const availH = targetH * (1 - padding * 2);
+    const offsetX = targetW * padding;
+    const offsetY = targetH * padding;
+
+    const imgAspect = img.width / img.height;
+    const availAspect = availW / availH;
+
+    let drawW, drawH, drawX, drawY;
+
+    if (imgAspect > availAspect){
+      // Image is wider - fit to width
+      drawW = availW;
+      drawH = availW / imgAspect;
+      drawX = offsetX;
+      drawY = offsetY + (availH - drawH) / 2;
+    } else {
+      // Image is taller - fit to height
+      drawH = availH;
+      drawW = availH * imgAspect;
+      drawX = offsetX + (availW - drawW) / 2;
+      drawY = offsetY;
+    }
+
+    ctx.drawImage(img, drawX, drawY, drawW, drawH);
+
+    return canvas;
+  }
+
+  /**
+   * Process a PDF attachment: render each page to A4 canvas
+   */
+  async function processPdfAttachment(file, dpi, targetW, targetH){
+    if (!window.loadPdfJs){
+      throw new Error('PDF loader not available');
+    }
+
+    const pdfjsLib = await window.loadPdfJs();
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    const canvases = [];
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++){
+      const page = await pdf.getPage(pageNum);
+
+      // Calculate scale to fit A4 with padding
+      const padding = 0.05;
+      const availW = targetW * (1 - padding * 2);
+      const availH = targetH * (1 - padding * 2);
+
+      const viewport = page.getViewport({ scale: 1 });
+      const scaleX = availW / viewport.width;
+      const scaleY = availH / viewport.height;
+      const scale = Math.min(scaleX, scaleY);
+
+      const scaledViewport = page.getViewport({ scale });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d');
+
+      // White background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, targetW, targetH);
+
+      // Center the PDF page
+      const offsetX = (targetW - scaledViewport.width) / 2;
+      const offsetY = (targetH - scaledViewport.height) / 2;
+
+      ctx.translate(offsetX, offsetY);
+
+      await page.render({
+        canvasContext: ctx,
+        viewport: scaledViewport
+      }).promise;
+
+      canvases.push(canvas);
+    }
+
+    pdf.destroy();
+    return canvases;
+  }
+
+  /**
+   * Process all attachment files and return array of canvases
+   */
+  async function processAttachments(attachmentFiles, dpi){
+    if (!attachmentFiles || attachmentFiles.length === 0){
+      return [];
+    }
+
+    const targetW = A4_PX[dpi]?.w || A4_PX[300].w;
+    const targetH = A4_PX[dpi]?.h || A4_PX[300].h;
+
+    const allCanvases = [];
+
+    // Process files sequentially to manage memory on iOS
+    for (const attachment of attachmentFiles){
+      const { file, type } = attachment;
+
+      try {
+        if (type === 'application/pdf'){
+          const pdfCanvases = await processPdfAttachment(file, dpi, targetW, targetH);
+          allCanvases.push(...pdfCanvases);
+        } else {
+          // Image file
+          const canvas = await processImageAttachment(file, targetW, targetH);
+          allCanvases.push(canvas);
+        }
+      } catch (e) {
+        console.warn(`Failed to process attachment "${attachment.name}":`, e);
+        // Continue with other attachments
+      }
+    }
+
+    return allCanvases;
+  }
+
   async function exportPDF(){
     const exportBtn = document.getElementById('btn-export');
     const btnOriginalText = exportBtn ? exportBtn.textContent : '';
@@ -90,6 +253,7 @@
           ];
 
       let canvases = null;
+      let usedDpi = 300;
       let lastErr = null;
       for (const a of attempts){
         try{
@@ -97,6 +261,7 @@
           canvases = await window.renderLetterToCanvases(state, { dpi: a.dpi, backgroundSrc: a.bg });
           if (canvases && canvases.length){
             console.log(`[PDF] success at ${a.dpi} DPI (${canvases.length} page(s))`);
+            usedDpi = a.dpi;
             break;
           }
         }catch(e){
@@ -108,9 +273,25 @@
         throw lastErr || new Error('no pages');
       }
 
+      // Process attachment files if any
+      let attachmentCanvases = [];
+      if (state.attachmentFiles && state.attachmentFiles.length > 0){
+        console.log(`[PDF] processing ${state.attachmentFiles.length} attachment(s)…`);
+        try {
+          attachmentCanvases = await processAttachments(state.attachmentFiles, usedDpi);
+          console.log(`[PDF] ${attachmentCanvases.length} attachment page(s) rendered`);
+        } catch (e) {
+          console.warn('[PDF] attachment processing failed:', e);
+          toast('تعذر معالجة بعض المرفقات', 'error');
+        }
+      }
+
+      // Combine letter canvases and attachment canvases
+      const allCanvases = [...canvases, ...attachmentCanvases];
+
       // Convert canvases to JPEG bytes (progressive, good compression)
       const pages = [];
-      for (const c of canvases){
+      for (const c of allCanvases){
         const dataUrl = c.toDataURL('image/jpeg', 0.92);
         const bytes = dataURLToBytes(dataUrl);
         pages.push({ jpegBytes: bytes, wPx: c.width, hPx: c.height });
@@ -120,7 +301,9 @@
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const filename = `خطاب-${(state.subject || 'document').slice(0,24).replace(/\s+/g,'_')}.pdf`;
       downloadBlob(blob, filename);
-      toast('تم تجهيز ملف PDF');
+
+      const attachmentNote = attachmentCanvases.length > 0 ? ` (مع ${attachmentCanvases.length} مرفق)` : '';
+      toast('تم تجهيز ملف PDF' + attachmentNote);
     }catch(err){
       console.error('[PDF] export failed:', err);
       const detail = err?.message || '';

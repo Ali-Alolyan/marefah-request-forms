@@ -61,6 +61,13 @@ const el = (id) => document.getElementById(id);
 let signatureDataUrl = null;
 let COST_CENTER_LIST = [];
 
+// Attachment files storage (File objects, not persisted to localStorage)
+let attachmentFiles = [];
+
+// Allowed attachment file types
+const ALLOWED_ATTACHMENT_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
+const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10 MB
+
 
 function init(){
   buildCostCenters();
@@ -68,6 +75,7 @@ function init(){
   bindDatePicker();
   bindUI();
   bindMobileTabs();
+  initAttachmentsUI();
   setDefaults();
 
   // Apply authenticated session (name + job title as read-only)
@@ -319,6 +327,343 @@ function readFileAsDataUrl(file){
   });
 }
 
+/* -------------------------------------------------------
+   Attachment Files Handling
+-------------------------------------------------------- */
+
+function initAttachmentsUI(){
+  // Setup for both close_custody and general sections
+  const zones = [
+    { dropZone: 'file-drop-zone-close', input: 'file-input-close', previews: 'attachment-previews-close' },
+    { dropZone: 'file-drop-zone-general', input: 'file-input-general', previews: 'attachment-previews-general' }
+  ];
+
+  zones.forEach(({ dropZone, input }) => {
+    const zone = el(dropZone);
+    const fileInput = el(input);
+    if (!zone || !fileInput) return;
+
+    // Click on zone opens file picker
+    zone.addEventListener('click', (e) => {
+      if (e.target.closest('.file-drop-zone__btn') || e.target === fileInput) return;
+      fileInput.click();
+    });
+
+    // Keyboard activation
+    zone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        fileInput.click();
+      }
+    });
+
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+      handleAttachmentFiles(e.target.files);
+      e.target.value = ''; // Allow re-selecting same file
+    });
+
+    // Drag and drop
+    zone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      zone.classList.add('is-dragover');
+    });
+
+    zone.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      zone.classList.remove('is-dragover');
+    });
+
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      zone.classList.remove('is-dragover');
+      handleAttachmentFiles(e.dataTransfer.files);
+    });
+  });
+}
+
+async function handleAttachmentFiles(fileList){
+  if (!fileList || !fileList.length) return;
+
+  const files = Array.from(fileList);
+  let addedCount = 0;
+  let skippedCount = 0;
+
+  for (const file of files){
+    // Validate type
+    if (!ALLOWED_ATTACHMENT_TYPES.includes(file.type)){
+      skippedCount++;
+      continue;
+    }
+
+    // Validate size
+    if (file.size > MAX_ATTACHMENT_SIZE){
+      showToast(`الملف "${file.name}" كبير جدًا (الحد الأقصى 10 ميجا)`, 'error');
+      skippedCount++;
+      continue;
+    }
+
+    // Check for duplicates (by name and size)
+    const isDuplicate = attachmentFiles.some(f => f.name === file.name && f.size === file.size);
+    if (isDuplicate){
+      skippedCount++;
+      continue;
+    }
+
+    // Get page count for PDFs
+    let pageCount = 1;
+    if (file.type === 'application/pdf'){
+      try {
+        pageCount = await getPdfPageCount(file);
+      } catch (e) {
+        console.warn('Failed to get PDF page count:', e);
+        showToast(`تعذر قراءة ملف PDF "${file.name}"`, 'error');
+        skippedCount++;
+        continue;
+      }
+    }
+
+    // Add file with metadata
+    attachmentFiles.push({
+      file,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      pageCount,
+      thumbnail: null // Will be generated
+    });
+
+    addedCount++;
+  }
+
+  if (skippedCount > 0 && addedCount === 0){
+    showToast('نوع الملف غير مدعوم (PNG, JPG, WebP, PDF فقط)', 'error');
+  } else if (addedCount > 0){
+    showToast(`تم إضافة ${addedCount} ملف${addedCount > 1 ? 'ات' : ''}`, 'success');
+  }
+
+  // Generate thumbnails and update UI
+  await generateAllThumbnails();
+  renderAttachmentPreviews();
+  updateAttachmentCount();
+  refresh();
+}
+
+async function getPdfPageCount(file){
+  // Lazy load pdf.js
+  if (!window.loadPdfJs){
+    throw new Error('PDF loader not available');
+  }
+
+  const pdfjsLib = await window.loadPdfJs();
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pageCount = pdf.numPages;
+  pdf.destroy();
+  return pageCount;
+}
+
+async function generateAllThumbnails(){
+  for (const attachment of attachmentFiles){
+    if (attachment.thumbnail) continue; // Already generated
+
+    try {
+      attachment.thumbnail = await generateThumbnail(attachment);
+    } catch (e) {
+      console.warn('Failed to generate thumbnail:', e);
+      attachment.thumbnail = null;
+    }
+  }
+}
+
+async function generateThumbnail(attachment){
+  const { file, type } = attachment;
+
+  if (type === 'application/pdf'){
+    // Generate thumbnail from first page of PDF
+    return await generatePdfThumbnail(file);
+  } else {
+    // Image thumbnail
+    return await generateImageThumbnail(file);
+  }
+}
+
+async function generateImageThumbnail(file){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      // Create thumbnail canvas
+      const canvas = document.createElement('canvas');
+      const maxSize = 160;
+      let w = img.width;
+      let h = img.height;
+
+      if (w > h){
+        if (w > maxSize){ h = h * maxSize / w; w = maxSize; }
+      } else {
+        if (h > maxSize){ w = w * maxSize / h; h = maxSize; }
+      }
+
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.7));
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Failed to load image'));
+    };
+
+    img.src = url;
+  });
+}
+
+async function generatePdfThumbnail(file){
+  if (!window.loadPdfJs){
+    return null;
+  }
+
+  const pdfjsLib = await window.loadPdfJs();
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+  if (pdf.numPages < 1){
+    pdf.destroy();
+    return null;
+  }
+
+  const page = await pdf.getPage(1);
+  const viewport = page.getViewport({ scale: 0.5 });
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // Scale to thumbnail size
+  const maxSize = 160;
+  let scale = 0.5;
+  if (viewport.width > maxSize || viewport.height > maxSize){
+    scale = maxSize / Math.max(viewport.width, viewport.height) * 0.5;
+  }
+
+  const scaledViewport = page.getViewport({ scale });
+  canvas.width = scaledViewport.width;
+  canvas.height = scaledViewport.height;
+
+  await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+
+  pdf.destroy();
+  return canvas.toDataURL('image/jpeg', 0.7);
+}
+
+function renderAttachmentPreviews(){
+  // Get current letter type to determine which preview container to use
+  const type = el('letterType')?.value || 'general';
+  const previewContainerId = type === 'close_custody' ? 'attachment-previews-close' : 'attachment-previews-general';
+  const container = el(previewContainerId);
+
+  // Also update the other container (clear it)
+  const otherContainerId = type === 'close_custody' ? 'attachment-previews-general' : 'attachment-previews-close';
+  const otherContainer = el(otherContainerId);
+  if (otherContainer) otherContainer.innerHTML = '';
+
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  attachmentFiles.forEach((attachment, index) => {
+    const preview = document.createElement('div');
+    preview.className = 'attachment-preview';
+
+    // Thumbnail or PDF icon
+    if (attachment.thumbnail){
+      const img = document.createElement('img');
+      img.className = 'attachment-preview__thumb';
+      img.src = attachment.thumbnail;
+      img.alt = attachment.name;
+      preview.appendChild(img);
+    } else if (attachment.type === 'application/pdf'){
+      const pdfIcon = document.createElement('div');
+      pdfIcon.className = 'attachment-preview__pdf-icon';
+      pdfIcon.textContent = 'PDF';
+      preview.appendChild(pdfIcon);
+    } else {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'attachment-preview__thumb';
+      placeholder.style.background = 'var(--md-sys-color-surface-container)';
+      preview.appendChild(placeholder);
+    }
+
+    // Page count badge for multi-page PDFs
+    if (attachment.type === 'application/pdf' && attachment.pageCount > 1){
+      const badge = document.createElement('div');
+      badge.className = 'attachment-preview__badge';
+      badge.textContent = `${attachment.pageCount} ص`;
+      preview.appendChild(badge);
+    }
+
+    // File name
+    const info = document.createElement('div');
+    info.className = 'attachment-preview__info';
+    info.textContent = attachment.name;
+    info.title = attachment.name;
+    preview.appendChild(info);
+
+    // Remove button
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'attachment-preview__remove';
+    removeBtn.type = 'button';
+    removeBtn.innerHTML = '&times;';
+    removeBtn.title = 'حذف';
+    removeBtn.setAttribute('aria-label', `حذف ${attachment.name}`);
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeAttachment(index);
+    });
+    preview.appendChild(removeBtn);
+
+    container.appendChild(preview);
+  });
+}
+
+function removeAttachment(index){
+  if (index < 0 || index >= attachmentFiles.length) return;
+
+  const removed = attachmentFiles.splice(index, 1)[0];
+  showToast(`تم حذف "${removed.name}"`, 'success');
+
+  renderAttachmentPreviews();
+  updateAttachmentCount();
+  refresh();
+}
+
+function updateAttachmentCount(){
+  // Calculate total page count (images = 1 page each, PDFs = their page count)
+  const totalPages = attachmentFiles.reduce((sum, att) => sum + (att.pageCount || 1), 0);
+
+  // Update the appropriate field based on letter type
+  const type = el('letterType')?.value || 'general';
+  if (type === 'close_custody'){
+    el('attachments').value = totalPages;
+  } else if (type === 'general'){
+    el('attachmentsGeneral').value = totalPages;
+  }
+}
+
+function clearAttachments(){
+  attachmentFiles = [];
+  renderAttachmentPreviews();
+  updateAttachmentCount();
+}
+
 function toggleExtraSections(type){
   toggleAnimated(el('extra-custody'), type === 'custody');
   toggleAnimated(el('extra-close'), type === 'close_custody');
@@ -426,6 +771,7 @@ function collectState(){
     signatureDataUrl: sig,
 
     attachmentsText,
+    attachmentFiles: attachmentFiles.slice(), // Copy of attachment files array
     ...cc,
     ...dates
   };
@@ -557,6 +903,9 @@ function applyLetterTypeUI(){
   if (costSection){
     toggleAnimated(costSection, type !== 'general');
   }
+  // Re-render attachment previews to the correct container when type changes
+  renderAttachmentPreviews();
+  updateAttachmentCount();
 }
 
 function applySignatureModeUI(){

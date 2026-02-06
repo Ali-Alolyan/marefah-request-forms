@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="theme-color" content="#1e5aa8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://rlftalctuaybztrgegnb.supabase.co; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; object-src 'none'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://rlftalctuaybztrgegnb.supabase.co; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; object-src 'none'; worker-src 'self' blob:" />
   <meta name="description" content="مولّد خطابات رسمية لجمعية معرفة — إنشاء خطابات A4 بالتاريخ الهجري والميلادي والتوقيع الرقمي وتصدير PDF" />
   <title>مولّد الخطابات - جمعية معرفة</title>
 
@@ -160,16 +160,60 @@
 
           <label class="field">
             <span class="field__label">عدد المشفوعات</span>
-            <input id="attachments" class="field__control" type="number" step="1" min="0" inputmode="numeric" placeholder="0" />
+            <input id="attachments" class="field__control" type="number" step="1" min="0" inputmode="numeric" placeholder="0" readonly />
+            <span class="field__hint">يُحدث تلقائيًا بناءً على الملفات المرفقة</span>
           </label>
+
+          <div class="attachment-upload" id="attachment-upload-close">
+            <span class="field__label">إرفاق المشفوعات (صور/PDF)</span>
+            <p class="attachment-explainer">المشفوعات هي المستندات والوثائق المرفقة مع الخطاب، مثل: الفواتير، الإيصالات، صور المستندات، أو أي ملفات داعمة للطلب.</p>
+            <div class="file-drop-zone" id="file-drop-zone-close" tabindex="0" role="button" aria-label="منطقة رفع الملفات">
+              <div class="file-drop-zone__content">
+                <div class="file-drop-zone__icon" aria-hidden="true">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                </div>
+                <div class="file-drop-zone__text">اسحب الملفات هنا أو</div>
+                <button type="button" class="btn btn--ghost file-drop-zone__btn">اختر ملفات</button>
+                <div class="file-drop-zone__hint">PNG, JPG, WebP, PDF (حد أقصى 10 ميجا لكل ملف)</div>
+              </div>
+              <input type="file" class="file-drop-zone__input" id="file-input-close" multiple accept="image/png,image/jpeg,image/webp,application/pdf" />
+            </div>
+            <div class="attachment-previews" id="attachment-previews-close"></div>
+          </div>
         </div>
 
         <!-- general -->
         <div id="extra-general" class="extra">
           <label class="field">
             <span class="field__label">عدد المشفوعات (اختياري)</span>
-            <input id="attachmentsGeneral" class="field__control" type="number" step="1" min="0" inputmode="numeric" placeholder="0" />
+            <input id="attachmentsGeneral" class="field__control" type="number" step="1" min="0" inputmode="numeric" placeholder="0" readonly />
+            <span class="field__hint">يُحدث تلقائيًا بناءً على الملفات المرفقة</span>
           </label>
+
+          <div class="attachment-upload" id="attachment-upload-general">
+            <span class="field__label">إرفاق المشفوعات (صور/PDF)</span>
+            <p class="attachment-explainer">المشفوعات هي المستندات والوثائق المرفقة مع الخطاب، مثل: الفواتير، الإيصالات، صور المستندات، أو أي ملفات داعمة للطلب.</p>
+            <div class="file-drop-zone" id="file-drop-zone-general" tabindex="0" role="button" aria-label="منطقة رفع الملفات">
+              <div class="file-drop-zone__content">
+                <div class="file-drop-zone__icon" aria-hidden="true">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                </div>
+                <div class="file-drop-zone__text">اسحب الملفات هنا أو</div>
+                <button type="button" class="btn btn--ghost file-drop-zone__btn">اختر ملفات</button>
+                <div class="file-drop-zone__hint">PNG, JPG, WebP, PDF (حد أقصى 10 ميجا لكل ملف)</div>
+              </div>
+              <input type="file" class="file-drop-zone__input" id="file-input-general" multiple accept="image/png,image/jpeg,image/webp,application/pdf" />
+            </div>
+            <div class="attachment-previews" id="attachment-previews-general"></div>
+          </div>
         </div>
       </div>
 
@@ -337,6 +381,7 @@
   <script src="js/templates.js"></script>
   <script src="js/pagination.js"></script>
   <script src="js/canvas-renderer.js"></script>
+  <script src="js/pdf-loader.js"></script>
   <script src="js/print.js"></script>
   <script src="js/mobile-preview.js"></script>
   <script src="js/app.js"></script>
