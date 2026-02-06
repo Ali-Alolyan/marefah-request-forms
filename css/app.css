@@ -1120,25 +1120,6 @@ html.theme-transitioning *::after{
 }
 
 /* -------------------------------------------------------
-   Agreement Conditions in Letter Preview
--------------------------------------------------------- */
-.agreementSection{
-  margin: 3mm 0;
-  font-size: 12px;
-  line-height: 1.8;
-}
-.agreementList{
-  padding-inline-start: 18px;
-  margin: 0;
-  font-size: 11.5px;
-  line-height: 1.85;
-}
-.agreementList li{
-  margin-bottom: 1mm;
-}
-
-
-/* -------------------------------------------------------
    Login Overlay
 -------------------------------------------------------- */
 .login-overlay{

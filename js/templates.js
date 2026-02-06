@@ -56,10 +56,6 @@ function renderLetterBlocks(state){
     blocks.push(paragraph(`<span class="letterLabel">مبلغ العهدة المطلوب:</span> ${amt}`));
 
     blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،'));
-
-    if (state.agreedToTerms) {
-      blocks.push(agreementBlock());
-    }
   }
 
   if (state.type === 'close_custody'){
@@ -78,10 +74,6 @@ function renderLetterBlocks(state){
 
     blocks.push(paragraph('وسيتم إرفاق المشفوعات الداعمة (الفواتير/المستندات) ضمن إجراءات الإغلاق لدى الإدارة المختصة.'));
     blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،'));
-
-    if (state.agreedToTerms) {
-      blocks.push(agreementBlock());
-    }
   }
 
   if (state.type === 'general'){
@@ -118,38 +110,6 @@ function labelAndText(label, text){
   body.textContent = text;
 
   wrap.appendChild(body);
-  return wrap;
-}
-
-function agreementBlock(){
-  const wrap = document.createElement('div');
-  wrap.className = 'agreementSection';
-
-  const heading = document.createElement('div');
-  heading.className = 'letterLabel';
-  heading.style.marginBottom = '2mm';
-  heading.textContent = 'الضوابط والإجراءات المالية:';
-  wrap.appendChild(heading);
-
-  const items = [
-    '<b>نظامية الفواتير:</b> يجب أن تكون جميع الفواتير رسمية (إلكترونية).',
-    '<b>بيانات الجهة:</b> ضرورة إدراج اسم الجمعية والرقم الضريبي بشكل واضح على الفواتير.',
-    '<b>المدة الزمنية:</b> الالتزام بإقفال العهدة خلال مدة لا تتجاوز 60 يوماً من تاريخ استلامها.',
-    '<b>نموذج الإقفال:</b> تُفرغ بيانات الفواتير في "نموذج إقفال العهدة" المعتمد، والذي سيتم تزويدكم به من قبل الإدارة المالية.',
-    '<b>مطابقة المبلغ:</b> يجب أن يكون إجمالي مبلغ الإقفال مساوياً للمبلغ الذي تم تحويله للعهدة تماماً.',
-    '<b>التوثيق الضوئي:</b> يرجى تصوير الفواتير "الحرارية" (الورق الحساس) ضوئياً؛ لضمان عدم تلاشي البيانات مع مرور الوقت.',
-  ];
-
-  const ol = document.createElement('ol');
-  ol.className = 'agreementList';
-  ol.setAttribute('dir', 'rtl');
-  items.forEach(html => {
-    const li = document.createElement('li');
-    li.innerHTML = html;
-    ol.appendChild(li);
-  });
-  wrap.appendChild(ol);
-
   return wrap;
 }
 
