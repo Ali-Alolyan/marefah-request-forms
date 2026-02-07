@@ -4,11 +4,21 @@
  */
 
 const EXECUTIVE_DIRECTOR = 'سعادة المدير التنفيذي/ أ.د. محمد عبدالعزيز العواجي حفظه الله';
+const GENERAL_FINANCIAL_DEFAULT_DETAILS = 'أتقدم لسعادتكم بطلب اعتماد مبلغ مالي لتغطية المصروفات التشغيلية المعتمدة لتنفيذ الأنشطة ضمن خطة العمل، على أن يتم الصرف وفق السياسات والإجراءات المالية المعتمدة في الجمعية.';
+
+function shouldShowCostCenterLine(state){
+  if (state.type === 'custody' || state.type === 'close_custody') return true;
+  if (state.type === 'general_financial') {
+    return !!state.financialIncludeCostCenter && !!(state.costCenter || state.programNameAr || state.projectName);
+  }
+  return false;
+}
 
 function buildSubjectByType(type, costCenter){
   // Keep subject clean (no lengthy codes). Cost center is shown inside the letter body.
   if (type === 'custody') return 'طلب عهدة مالية';
   if (type === 'close_custody') return 'طلب إغلاق عهدة مالية';
+  if (type === 'general_financial') return 'طلب مالي عام';
   return '';
 }
 
@@ -32,8 +42,8 @@ function renderLetterBlocks(state){
 
   blocks.push(paragraph('السلام عليكم ورحمة الله وبركاته، وبعد:'));
 
-  // Cost center is only needed for custody / close custody.
-  if (state.type !== 'general') {
+  // Cost center is needed for custody/close-custody and optional for general_financial.
+  if (shouldShowCostCenterLine(state)) {
     const cc = document.createElement('div');
     cc.className = 'letterPara';
     let ccHtml = `<span class="letterLabel">مركز التكلفة:</span>
@@ -91,6 +101,16 @@ function renderLetterBlocks(state){
     blocks.push(paragraph(`<span class="letterLabel">عدد المشفوعات:</span> ${att}`));
 
     blocks.push(paragraph('وسيتم إرفاق المشفوعات الداعمة (الفواتير/المستندات) ضمن إجراءات الإغلاق لدى الإدارة المختصة.'));
+    blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،'));
+  }
+
+  if (state.type === 'general_financial'){
+    const financialDetails = state.details || GENERAL_FINANCIAL_DEFAULT_DETAILS;
+    blocks.push(labelAndText('تفاصيل الطلب المالي:', financialDetails));
+
+    const amount = state.financialAmount != null ? `${formatNumberArabic(state.financialAmount)} <span class="icon-saudi_riyal"></span>` : '—';
+    blocks.push(paragraph(`<span class="letterLabel">المبلغ المطلوب:</span> ${amount}`));
+
     blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،'));
   }
 

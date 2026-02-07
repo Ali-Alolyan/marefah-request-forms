@@ -157,6 +157,19 @@ function typeNeedsProjects(type){
   return type === 'custody' || type === 'close_custody';
 }
 
+function isGeneralFinancialType(type){
+  return type === 'general_financial';
+}
+
+function isAgreementRequiredType(type){
+  return type === 'custody' || type === 'close_custody' || isGeneralFinancialType(type);
+}
+
+function isAutoFinancialSubject(subject){
+  var s = String(subject || '').trim();
+  return s.startsWith('طلب عهدة') || s.startsWith('طلب إغلاق') || s.startsWith('طلب مالي عام');
+}
+
 function getAllowedLetterType(){
   var selected = el('letterType')?.value || 'general';
   if (!SESSION_PROJECTS.length && typeNeedsProjects(selected)) {
@@ -228,7 +241,8 @@ function bindUI(){
   const watchIds = [
     'letterType','projectName',
     'applicantName','jobTitle','subject','details',
-    'custodyAmount','usedAmount','remainingAmount','attachments','attachmentsGeneral',
+    'custodyAmount','financialAmount','usedAmount','remainingAmount','attachments','attachmentsGeneral',
+    'financialIncludeCostCenter',
     'agreeTerms',
     // signatureMode is handled separately (to update UI first then refresh)
   ];
@@ -254,7 +268,7 @@ function bindUI(){
       refresh();
     }
   }
-  ['custodyAmount','usedAmount','remainingAmount'].forEach(id => {
+  ['custodyAmount','financialAmount','usedAmount','remainingAmount'].forEach(id => {
     const node = el(id);
     if (!node) return;
     node.addEventListener('input', normalizeArabicDigits);
@@ -405,6 +419,7 @@ function setDefaults(){
 
   // Default letter type: general
   el('letterType').value = 'general';
+  if (el('financialIncludeCostCenter')) el('financialIncludeCostCenter').checked = false;
 
   // Set today's date (local ISO)
   const iso = toLocalISODate(now);
@@ -426,10 +441,11 @@ function resetEditorState(){
   var letterType = el('letterType');
   if (letterType) letterType.value = 'general';
 
-  ['subject','details','custodyAmount','usedAmount','remainingAmount','attachments','attachmentsGeneral'].forEach(function(id){
+  ['subject','details','custodyAmount','financialAmount','usedAmount','remainingAmount','attachments','attachmentsGeneral'].forEach(function(id){
     var node = el(id);
     if (node) node.value = '';
   });
+  if (el('financialIncludeCostCenter')) el('financialIncludeCostCenter').checked = false;
 
   var agreeTerms = el('agreeTerms');
   if (agreeTerms) agreeTerms.checked = false;
@@ -792,7 +808,7 @@ function updateAttachmentCount(){
   const type = getAllowedLetterType();
   if (type === 'close_custody'){
     el('attachments').value = totalPages;
-  } else if (type === 'general'){
+  } else if (type === 'general' || isGeneralFinancialType(type)){
     el('attachmentsGeneral').value = totalPages;
   }
 }
@@ -805,9 +821,10 @@ function clearAttachments(){
 
 function toggleExtraSections(type){
   toggleAnimated(el('extra-custody'), type === 'custody');
+  toggleAnimated(el('extra-financial'), isGeneralFinancialType(type));
   toggleAnimated(el('extra-close'), type === 'close_custody');
-  toggleAnimated(el('extra-general'), type === 'general');
-  toggleAnimated(el('section-agreement'), type === 'custody' || type === 'close_custody');
+  toggleAnimated(el('extra-general'), type === 'general' || isGeneralFinancialType(type));
+  toggleAnimated(el('section-agreement'), isAgreementRequiredType(type));
 }
 
 function toggleAnimated(node, show){
@@ -825,10 +842,19 @@ function toggleAnimated(node, show){
 }
 
 function computeCostCenter(){
-  // For general letters we hide cost center entirely.
-  if (getAllowedLetterType() === 'general'){
+  var type = getAllowedLetterType();
+  var includeCostCenter = !!el('financialIncludeCostCenter')?.checked;
+
+  // For custom letters we hide cost center entirely.
+  if (type === 'general'){
     return { costCenter: '', programNameAr: '', pfName: '', projectName: '' };
   }
+
+  // For general financial letters, showing cost center is optional.
+  if (isGeneralFinancialType(type) && !includeCostCenter){
+    return { costCenter: '', programNameAr: '', pfName: '', projectName: '' };
+  }
+
   var sel = el('projectName');
   var opt = sel && sel.selectedOptions ? sel.selectedOptions[0] : null;
   var costCenter = (opt && opt.dataset.costCenter) || '';
@@ -860,22 +886,22 @@ function collectState(){
   let attachments = 0;
   if (type === 'close_custody'){
     attachments = clampInt(el('attachments').value, 0, 9999) ?? 0;
-  }else if (type === 'general'){
+  }else if (type === 'general' || isGeneralFinancialType(type)){
     attachments = clampInt(el('attachmentsGeneral').value, 0, 9999) ?? 0;
   }
   const attachmentsText = attachments ? formatNumberArabic(attachments) : '';
 
-  // Subject: auto-fill for custody types; leave empty for general (custom)
+  // Subject: auto-fill for financial letter types; leave empty for custom general.
   const currentSubject = String(el('subject').value || '').trim();
   const autoSubject = buildSubjectByType(type, cc.costCenter);
   if (type === 'general'){
-    // Clear auto-filled custody subjects when switching to general
-    if (currentSubject.startsWith('طلب عهدة') || currentSubject.startsWith('طلب إغلاق')){
+    // Clear auto-filled financial subjects when switching to custom general.
+    if (isAutoFinancialSubject(currentSubject)){
       el('subject').value = '';
     }
   } else {
-    // Auto-fill only for custody types, and only if empty or matches another auto pattern
-    if (!currentSubject || currentSubject.startsWith('طلب عهدة') || currentSubject.startsWith('طلب إغلاق')){
+    // Auto-fill only when empty or when replacing another known auto-subject.
+    if (!currentSubject || isAutoFinancialSubject(currentSubject)){
       el('subject').value = autoSubject;
     }
   }
@@ -886,6 +912,7 @@ function collectState(){
 
   // Amounts
   const custodyAmount = parseAmount(el('custodyAmount')?.value);
+  const financialAmount = parseAmount(el('financialAmount')?.value);
   const usedAmount = parseAmount(el('usedAmount')?.value);
   const remainingAmount = parseAmount(el('remainingAmount')?.value);
 
@@ -903,9 +930,11 @@ function collectState(){
     jobTitle: String(el('jobTitle').value || '').trim(),
 
     custodyAmount,
+    financialAmount,
     usedAmount,
     remainingAmount,
     attachments,
+    financialIncludeCostCenter: !!el('financialIncludeCostCenter')?.checked,
 
     agreedToTerms: el('agreeTerms')?.checked || false,
 
@@ -1038,10 +1067,14 @@ function loadDraft(){
   el('details').value = state.details || '';
 
   el('custodyAmount').value = state.custodyAmount ?? '';
+  el('financialAmount').value = state.financialAmount ?? '';
   el('usedAmount').value = state.usedAmount ?? '';
   el('remainingAmount').value = state.remainingAmount ?? '';
   el('attachments').value = '';
   el('attachmentsGeneral').value = '';
+  if (el('financialIncludeCostCenter')) {
+    el('financialIncludeCostCenter').checked = !!state.financialIncludeCostCenter;
+  }
 
   // Date
   if (state.dateISO){
@@ -1063,6 +1096,9 @@ function loadDraft(){
 function applyLetterTypeUI(){
   var type = el('letterType')?.value || 'general';
   const costSection = el('section-costcenter');
+  const costToggleWrap = el('financialCostCenterToggleWrap');
+  const projectFieldsWrap = el('projectCostFieldsWrap');
+  const costToggleCheckbox = el('financialIncludeCostCenter');
   const hasProjects = SESSION_PROJECTS.length > 0;
   const noProjectsHint = el('no-projects-hint');
 
@@ -1082,12 +1118,28 @@ function applyLetterTypeUI(){
     type = 'general';
   }
 
+  const showFinancialToggle = isGeneralFinancialType(type) && hasProjects;
+  if (!showFinancialToggle && costToggleCheckbox) {
+    costToggleCheckbox.checked = false;
+  }
+
+  const showProjectFields = type === 'custody' || type === 'close_custody' || (showFinancialToggle && !!costToggleCheckbox?.checked);
+  const showCostSection = type === 'custody' || type === 'close_custody' || showFinancialToggle;
+
   if (costSection){
-    toggleAnimated(costSection, type !== 'general');
+    toggleAnimated(costSection, showCostSection);
+  }
+
+  if (costToggleWrap){
+    toggleAnimated(costToggleWrap, showFinancialToggle);
+  }
+
+  if (projectFieldsWrap){
+    toggleAnimated(projectFieldsWrap, showProjectFields);
   }
 
   if (noProjectsHint) {
-    noProjectsHint.style.display = (!hasProjects && type !== 'general') ? '' : 'none';
+    noProjectsHint.style.display = (!hasProjects && showCostSection) ? '' : 'none';
   }
 
   // Re-render attachment previews to the correct container when type changes
@@ -1123,14 +1175,17 @@ function validateBeforeExport(){
   if (type === 'custody') {
     if (!parseAmount(el('custodyAmount')?.value)) missing.push('مبلغ العهدة');
   }
+  if (isGeneralFinancialType(type)) {
+    if (!parseAmount(el('financialAmount')?.value)) missing.push('المبلغ المطلوب');
+  }
   if (type === 'close_custody') {
     if (!parseAmount(el('usedAmount')?.value) && !parseAmount(el('remainingAmount')?.value)) {
       missing.push('المبلغ المستخدم أو المتبقي');
     }
   }
 
-  // Require agreement checkbox for custody-related letters
-  if ((type === 'custody' || type === 'close_custody') && !el('agreeTerms')?.checked) {
+  // Require agreement checkbox for financial letter types.
+  if (isAgreementRequiredType(type) && !el('agreeTerms')?.checked) {
     showToast('يجب الموافقة على الإقرار والتعهد قبل التصدير', 'error');
     return false;
   }

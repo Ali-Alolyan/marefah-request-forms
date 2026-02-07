@@ -1118,6 +1118,16 @@ html.theme-transitioning *::after{
 .agreement-list li b{
   color: var(--md-sys-color-on-surface);
 }
+.financial-cost-toggle{
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border: 1px dashed var(--md-sys-color-outline-variant);
+  border-radius: 12px;
+  background: var(--md-sys-color-surface-container-low);
+}
+:root[data-theme="dark"] .financial-cost-toggle{
+  background: var(--md-sys-color-surface-container);
+}
 
 /* -------------------------------------------------------
    Login Overlay

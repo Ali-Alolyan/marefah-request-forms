@@ -75,6 +75,7 @@
           <span class="field__label">نوع الخطاب <span class="required-mark">*</span></span>
           <select id="letterType" class="field__control">
             <option value="general" selected>خطاب مخصص</option>
+            <option value="general_financial">طلب مالي عام</option>
             <option value="custody">طلب عهدة مالية</option>
             <option value="close_custody">طلب إغلاق عهدة مالية</option>
           </select>
@@ -91,26 +92,34 @@
       <div class="section" id="section-costcenter">
         <div class="section__title">المشروع ومركز التكلفة</div>
 
-        <label class="field">
-          <span class="field__label">اسم المشروع</span>
-          <select id="projectName" class="field__control"></select>
-          <span class="field__hint">يُحدد تلقائيًا من المشاريع المسندة إليك</span>
+        <label class="agreement-check financial-cost-toggle section-animated is-hidden" id="financialCostCenterToggleWrap">
+          <input type="checkbox" id="financialIncludeCostCenter" />
+          <span>إرفاق مركز التكلفة في الخطاب (اختياري)</span>
+          <span class="field__hint">يمكنك تركه غير مفعّل لإرسال الطلب بدون مركز تكلفة.</span>
         </label>
 
-        <div class="grid2">
+        <div id="projectCostFieldsWrap" class="section-animated">
           <label class="field">
-            <span class="field__label">مركز التكلفة (Cost Center)</span>
-            <input id="costCenter" class="field__control" readonly />
+            <span class="field__label">اسم المشروع</span>
+            <select id="projectName" class="field__control"></select>
+            <span class="field__hint">يُحدد تلقائيًا من المشاريع المسندة إليك</span>
           </label>
 
-          <label class="field">
-            <span class="field__label">اسم البرنامج</span>
-            <input id="programNameDisplay" class="field__control" readonly />
-          </label>
+          <div class="grid2">
+            <label class="field">
+              <span class="field__label">مركز التكلفة (Cost Center)</span>
+              <input id="costCenter" class="field__control" readonly />
+            </label>
+
+            <label class="field">
+              <span class="field__label">اسم البرنامج</span>
+              <input id="programNameDisplay" class="field__control" readonly />
+            </label>
+          </div>
         </div>
 
         <div id="no-projects-hint" class="field__hint" style="display:none;color:var(--md-sys-color-error,#b3261e)">
-          لا توجد مشاريع مسندة إليك. يمكنك إنشاء خطابات مخصصة فقط.
+          لا توجد مشاريع مسندة إليك. يمكنك إنشاء خطاب مخصص أو طلب مالي عام بدون مركز تكلفة.
         </div>
       </div>
 
@@ -149,6 +158,15 @@
             <span class="field__label">مبلغ العهدة المطلوب (ريال)</span>
             <input id="custodyAmount" class="field__control" inputmode="decimal" placeholder="5000" />
             <span class="field__hint">أدخل مبلغ العهدة بالريال السعودي</span>
+          </label>
+        </div>
+
+        <!-- general financial -->
+        <div id="extra-financial" class="extra">
+          <label class="field">
+            <span class="field__label">المبلغ المطلوب (ريال) <span class="required-mark">*</span></span>
+            <input id="financialAmount" class="field__control" inputmode="decimal" placeholder="5000" />
+            <span class="field__hint">حقل إلزامي. أدخل المبلغ المطلوب بالريال السعودي (مثال: 12500).</span>
           </label>
         </div>
 

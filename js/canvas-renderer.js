@@ -28,6 +28,7 @@
   };
 
   const EXECUTIVE_DIRECTOR = 'سعادة المدير التنفيذي/ أ.د. محمد عبدالعزيز العواجي حفظه الله';
+  const GENERAL_FINANCIAL_DEFAULT_DETAILS = 'أتقدم لسعادتكم بطلب اعتماد مبلغ مالي لتغطية المصروفات التشغيلية المعتمدة لتنفيذ الأنشطة ضمن خطة العمل، على أن يتم الصرف وفق السياسات والإجراءات المالية المعتمدة في الجمعية.';
 
   function mmToPx(mm, dpi){
     return mm * dpi / MM_PER_IN;
@@ -119,7 +120,12 @@
     blocks.push({ kind: 'to', text: EXECUTIVE_DIRECTOR });
     blocks.push({ kind: 'para', text: 'السلام عليكم ورحمة الله وبركاته، وبعد:' });
 
-    if (type !== 'general'){
+    const shouldShowCostCenterLine =
+      type === 'custody' ||
+      type === 'close_custody' ||
+      (type === 'general_financial' && !!state.financialIncludeCostCenter && !!(state.costCenter || state.programNameAr || state.projectName));
+
+    if (shouldShowCostCenterLine){
       const cc = state.costCenter ? ltrWrap(state.costCenter) : '—';
       const program = state.programNameAr ? ` | البرنامج: ${state.programNameAr}` : '';
       const project = state.projectName ? ` | المشروع: ${state.projectName}` : '';
@@ -165,6 +171,19 @@
       blocks.push({ kind: 'para', label: 'المبلغ المتبقي:', text: remaining != null ? `${formatNumberArabic(remaining)} ريال سعودي` : '—' });
       blocks.push({ kind: 'para', label: 'عدد المشفوعات:', text: att != null ? formatNumberArabic(att) : '—' });
       blocks.push({ kind: 'para', text: 'وسيتم إرفاق المشفوعات الداعمة (الفواتير/المستندات) ضمن إجراءات الإغلاق لدى الإدارة المختصة.' });
+      blocks.push({ kind: 'para', text: 'شاكرين لسعادتكم حسن تعاونكم،' });
+      if (state.agreedToTerms) {
+        blocks.push({ kind: 'agreement' });
+      }
+    }
+
+    if (type === 'general_financial'){
+      const detailsText = state.details || GENERAL_FINANCIAL_DEFAULT_DETAILS;
+      blocks.push({ kind: 'labeltext', label: 'تفاصيل الطلب المالي:', text: detailsText });
+
+      const amount = ensureNumber(state.financialAmount);
+      const amountText = amount != null ? `${formatNumberArabic(amount)} ريال سعودي` : '—';
+      blocks.push({ kind: 'para', label: 'المبلغ المطلوب:', text: amountText });
       blocks.push({ kind: 'para', text: 'شاكرين لسعادتكم حسن تعاونكم،' });
       if (state.agreedToTerms) {
         blocks.push({ kind: 'agreement' });
