@@ -83,7 +83,11 @@ function syncSelectFieldStateById(controlId){
   const field = node.closest('.field');
   const isSelect = node.tagName === 'SELECT';
   const isDisabledSelect = isSelect && !!node.disabled;
-  if (field) field.classList.toggle('is-disabled', isDisabledSelect);
+  if (field) {
+    field.classList.toggle('field--select', isSelect);
+    field.classList.toggle('field--input', !isSelect);
+    field.classList.toggle('is-disabled', isDisabledSelect);
+  }
 
   if (controlId === 'projectName') {
     const hint = el('projectNameHint');

@@ -424,6 +424,25 @@ body{
   font-size: 12px;
   color: var(--md-sys-color-on-surface-variant);
 }
+.field.field--select .field__label{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.field.field--select .field__label::after{
+  content: 'قائمة';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-primary);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.6;
+}
 .field__control{
   width:100%;
   border: 1px solid var(--md-sys-color-outline-variant);
@@ -966,11 +985,15 @@ body{
 select.field__control{
   appearance: none;
   -webkit-appearance: none;
+  border-width: 2px;
+  border-color: color-mix(in srgb, var(--md-sys-color-primary) 40%, var(--md-sys-color-outline-variant));
   padding-inline-end: 36px;
+  background-color: color-mix(in srgb, var(--md-sys-color-primary-container) 18%, var(--md-sys-color-surface));
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23475569' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: left 12px center;
   background-size: 12px 8px;
+  font-weight: 600;
   transition: border-color var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-standard),
               box-shadow var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-standard),
               background-color var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-standard),
@@ -997,6 +1020,7 @@ select.field__control:disabled{
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%2394a3b8' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 :root[data-theme="dark"] select.field__control{
+  background-color: color-mix(in srgb, var(--md-sys-color-primary-container) 24%, var(--md-sys-color-surface-bright));
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23a8b6ca' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 :root[data-theme="dark"] select.field__control:disabled{
