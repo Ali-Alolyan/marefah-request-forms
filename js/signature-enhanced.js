@@ -20,6 +20,8 @@ class SignatureManager {
     this.history = [];
     this.historyStep = -1;
     this.maxHistory = 50;
+    this.blankDataUrl = null;
+    this.hasInk = false;
 
     // Drawing settings
     this.penSize = 2;
@@ -32,9 +34,10 @@ class SignatureManager {
 
   init() {
     this.resizeCanvas();
+    this.captureBlankState();
+    this.resetHistoryToBlank();
     this.setupEventListeners();
     this.setupControls();
-    this.saveState(); // Save initial blank state
     console.log('✓ Enhanced signature canvas initialized');
   }
 
@@ -43,28 +46,39 @@ class SignatureManager {
    */
   resizeCanvas() {
     const rect = this.canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
     const dpr = window.devicePixelRatio || 1;
 
-    // Save current canvas content
-    const imageData = this.canvas.toDataURL();
-    const hasContent = this.historyStep > 0;
+    // Save current canvas content before resize.
+    const hadDrawing = this.hasDrawing();
+    const imageData = hadDrawing ? this.getDataURL() : null;
 
     // Resize canvas
     this.canvas.width = rect.width * dpr;
     this.canvas.height = rect.height * dpr;
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ctx.scale(dpr, dpr);
 
     // Restore drawing settings
     this.updateDrawingStyle();
 
     // Restore content if it existed
-    if (hasContent) {
+    if (hadDrawing && imageData) {
       const img = new Image();
       img.onload = () => {
+        this.clearCanvasSurface();
+        this.captureBlankState();
         this.ctx.drawImage(img, 0, 0, rect.width, rect.height);
+        this.saveState({ replaceCurrent: true });
+        this.emitSignatureChanged();
       };
       img.src = imageData;
+      return;
     }
+
+    this.clearCanvasSurface();
+    this.captureBlankState();
+    this.resetHistoryToBlank();
   }
 
   /**
@@ -75,6 +89,37 @@ class SignatureManager {
     this.ctx.lineWidth = this.penSize;
     this.ctx.lineCap = 'round';
     this.ctx.lineJoin = 'round';
+  }
+
+  clearCanvasSurface() {
+    this.ctx.save();
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.restore();
+    this.updateDrawingStyle();
+  }
+
+  captureBlankState() {
+    this.blankDataUrl = this.canvas.toDataURL('image/png');
+  }
+
+  resetHistoryToBlank() {
+    if (!this.blankDataUrl) this.captureBlankState();
+    this.history = [this.blankDataUrl];
+    this.historyStep = 0;
+    this.hasInk = false;
+    this.updateUndoRedoButtons();
+  }
+
+  emitSignatureChanged() {
+    const hasDrawing = this.hasDrawing();
+    const event = new CustomEvent('signatureChanged', {
+      detail: {
+        hasDrawing,
+        dataUrl: hasDrawing ? this.getDataURL() : null
+      }
+    });
+    this.canvas.dispatchEvent(event);
   }
 
   /**
@@ -130,25 +175,41 @@ class SignatureManager {
       this.saveState(); // Save after each stroke
 
       // Dispatch event to notify that signature has changed
-      const event = new CustomEvent('signatureChanged', {
-        detail: { hasDrawing: !this.isEmpty() }
-      });
-      this.canvas.dispatchEvent(event);
+      this.emitSignatureChanged();
     }
   }
 
   /**
    * Save current canvas state to history
    */
-  saveState() {
+  saveState(options = {}) {
+    const { replaceCurrent = false } = options;
+    const dataUrl = this.getDataURL();
+
+    if (!this.blankDataUrl) {
+      this.blankDataUrl = dataUrl;
+    }
+    this.hasInk = dataUrl !== this.blankDataUrl;
+
+    if (replaceCurrent && this.historyStep >= 0) {
+      this.history[this.historyStep] = dataUrl;
+      this.updateUndoRedoButtons();
+      return;
+    }
+
+    if (this.historyStep >= 0 && this.history[this.historyStep] === dataUrl) {
+      this.updateUndoRedoButtons();
+      return;
+    }
+
     // Remove any states after current step (when drawing after undo)
-    this.historyStep++;
-    if (this.historyStep < this.history.length) {
-      this.history.length = this.historyStep;
+    if (this.historyStep < this.history.length - 1) {
+      this.history = this.history.slice(0, this.historyStep + 1);
     }
 
     // Save current state
-    this.history.push(this.canvas.toDataURL());
+    this.history.push(dataUrl);
+    this.historyStep = this.history.length - 1;
 
     // Limit history size
     if (this.history.length > this.maxHistory) {
@@ -162,12 +223,17 @@ class SignatureManager {
   /**
    * Restore canvas from data URL
    */
-  restoreState(dataUrl) {
+  restoreState(dataUrl, onDone) {
     const img = new Image();
     img.onload = () => {
       const rect = this.canvas.getBoundingClientRect();
-      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      this.clearCanvasSurface();
       this.ctx.drawImage(img, 0, 0, rect.width, rect.height);
+      this.hasInk = dataUrl !== this.blankDataUrl;
+      if (typeof onDone === 'function') onDone();
+    };
+    img.onerror = () => {
+      if (typeof onDone === 'function') onDone();
     };
     img.src = dataUrl;
   }
@@ -178,15 +244,11 @@ class SignatureManager {
   undo() {
     if (this.historyStep > 0) {
       this.historyStep--;
-      this.restoreState(this.history[this.historyStep]);
-      this.updateUndoRedoButtons();
-      this.announce('تم التراجع عن آخر عملية');
-
-      // Dispatch event to notify that signature has changed
-      const event = new CustomEvent('signatureChanged', {
-        detail: { hasDrawing: !this.isEmpty() }
+      this.restoreState(this.history[this.historyStep], () => {
+        this.updateUndoRedoButtons();
+        this.announce('تم التراجع عن آخر عملية');
+        this.emitSignatureChanged();
       });
-      this.canvas.dispatchEvent(event);
     }
   }
 
@@ -196,15 +258,11 @@ class SignatureManager {
   redo() {
     if (this.historyStep < this.history.length - 1) {
       this.historyStep++;
-      this.restoreState(this.history[this.historyStep]);
-      this.updateUndoRedoButtons();
-      this.announce('تم إعادة آخر عملية');
-
-      // Dispatch event to notify that signature has changed
-      const event = new CustomEvent('signatureChanged', {
-        detail: { hasDrawing: !this.isEmpty() }
+      this.restoreState(this.history[this.historyStep], () => {
+        this.updateUndoRedoButtons();
+        this.announce('تم إعادة آخر عملية');
+        this.emitSignatureChanged();
       });
-      this.canvas.dispatchEvent(event);
     }
   }
 
@@ -230,16 +288,11 @@ class SignatureManager {
    * Clear canvas completely
    */
   clear() {
-    const rect = this.canvas.getBoundingClientRect();
-    this.ctx.clearRect(0, 0, rect.width, rect.height);
-    this.saveState();
+    this.clearCanvasSurface();
+    this.captureBlankState();
+    this.resetHistoryToBlank();
     this.announce('تم مسح التوقيع');
-
-    // Dispatch event to notify that signature has been cleared
-    const event = new CustomEvent('signatureChanged', {
-      detail: { hasDrawing: false }
-    });
-    this.canvas.dispatchEvent(event);
+    this.emitSignatureChanged();
   }
 
   /**
@@ -275,7 +328,7 @@ class SignatureManager {
    * Check if canvas is empty
    */
   isEmpty() {
-    return this.historyStep <= 0;
+    return !this.hasInk;
   }
 
   /**

@@ -41,27 +41,73 @@ function parseAmount(str){
     .replace(/\u066C/g, ',')   // Arabic thousands separator (٬)
     .replace(/،/g, ',')        // Arabic comma
     .replace(/\s+/g, '')
-    .replace(/[^\d.,]/g, '');
+    .replace(/[^\d.,-]/g, '');
 
   if (!normalized) return null;
+  if (normalized === '-' || /^[.,-]+$/.test(normalized)) return null;
+  if ((normalized.match(/-/g) || []).length > 1) return null;
+  if (normalized.includes('-') && !normalized.startsWith('-')) return null;
 
-  const lastDot = normalized.lastIndexOf('.');
-  const lastComma = normalized.lastIndexOf(',');
-  const sepIndex = Math.max(lastDot, lastComma);
+  const sign = normalized.startsWith('-') ? -1 : 1;
+  const value = normalized.replace(/^-/, '');
+  if (!value) return null;
 
-  let compact;
-  if (sepIndex >= 0){
-    const intPart = normalized.slice(0, sepIndex).replace(/[.,]/g, '');
-    const fracPart = normalized.slice(sepIndex + 1).replace(/[.,]/g, '');
-    compact = fracPart ? `${intPart}.${fracPart}` : intPart;
-  } else {
-    compact = normalized.replace(/[.,]/g, '');
+  const dotCount = (value.match(/\./g) || []).length;
+  const commaCount = (value.match(/,/g) || []).length;
+
+  function parseWithDecimal(raw, decimalSep){
+    const parts = raw.split(decimalSep);
+    if (parts.length > 2) return null;
+    const intPart = parts[0].replace(/[.,]/g, '');
+    const fracPart = (parts[1] || '').replace(/[.,]/g, '');
+    if (!/^\d*$/.test(intPart) || !/^\d*$/.test(fracPart)) return null;
+    if (fracPart.length > 2) return null;
+    const compact = fracPart ? `${intPart}.${fracPart}` : intPart;
+    if (!compact) return null;
+    const parsed = Number(compact);
+    return Number.isFinite(parsed) ? parsed : null;
   }
 
-  if (!compact) return null;
+  function isGroupingPattern(raw, sep){
+    const groups = raw.split(sep);
+    if (groups.length < 2) return false;
+    if (!/^\d{1,3}$/.test(groups[0])) return false;
+    for (let i = 1; i < groups.length; i++) {
+      if (!/^\d{3}$/.test(groups[i])) return false;
+    }
+    return true;
+  }
 
-  const n = Number(compact);
-  return Number.isFinite(n) ? n : null;
+  let n = null;
+
+  if (dotCount && commaCount){
+    const decimalSep = value.lastIndexOf('.') > value.lastIndexOf(',') ? '.' : ',';
+    n = parseWithDecimal(value, decimalSep);
+  } else if (commaCount || dotCount){
+    const sep = commaCount ? ',' : '.';
+    const count = commaCount || dotCount;
+
+    if (isGroupingPattern(value, sep)) {
+      n = Number(value.split(sep).join(''));
+    } else if (count === 1) {
+      const sepIndex = value.indexOf(sep);
+      const fractionLen = value.length - sepIndex - 1;
+      if (fractionLen <= 0) return null;
+      // Prefer 1-2 decimal digits; longer suffix is treated as grouping.
+      if (fractionLen <= 2) {
+        n = parseWithDecimal(value, sep);
+      } else {
+        n = Number(value.split(sep).join(''));
+      }
+    } else {
+      return null;
+    }
+  } else {
+    n = Number(value);
+  }
+
+  if (!Number.isFinite(n)) return null;
+  return sign * n;
 }
 
 

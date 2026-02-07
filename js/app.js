@@ -38,6 +38,28 @@ let attachmentFiles = [];
 // Allowed attachment file types
 const ALLOWED_ATTACHMENT_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_ATTACHMENT_FILES = 20;
+const MAX_ATTACHMENT_TOTAL_PAGES = 80;
+const MAX_ATTACHMENT_TOTAL_SIZE = 100 * 1024 * 1024; // 100 MB
+
+const WATCH_IDS = [
+  'letterType','projectName',
+  'applicantName','jobTitle','subject','details',
+  'custodyAmount','financialAmount','usedAmount','remainingAmount','attachments','attachmentsGeneral',
+  'financialIncludeCostCenter',
+  'agreeTerms',
+];
+
+function bindRefreshNode(node){
+  if (!node || node.dataset.refreshBound === '1') return;
+  node.addEventListener('input', refresh);
+  node.addEventListener('change', refresh);
+  node.dataset.refreshBound = '1';
+}
+
+function bindRefreshByIds(ids){
+  ids.forEach((id) => bindRefreshNode(el(id)));
+}
 
 
 function init(){
@@ -238,21 +260,7 @@ function bindDatePicker(){
 }
 
 function bindUI(){
-  const watchIds = [
-    'letterType','projectName',
-    'applicantName','jobTitle','subject','details',
-    'custodyAmount','financialAmount','usedAmount','remainingAmount','attachments','attachmentsGeneral',
-    'financialIncludeCostCenter',
-    'agreeTerms',
-    // signatureMode is handled separately (to update UI first then refresh)
-  ];
-
-  watchIds.forEach(id => {
-    const node = el(id);
-    if (!node) return;
-    node.addEventListener('input', refresh);
-    node.addEventListener('change', refresh);
-  });
+  bindRefreshByIds(WATCH_IDS);
 
   // Auto-convert Arabic/Eastern numerals to Western on amount fields
   function normalizeArabicDigits(e) {
@@ -262,8 +270,8 @@ function bindUI(){
       .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
       .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0))
       .replace(/\u066C/g, '') // Arabic thousands separator
-      .replace(/[٫،]/g, '.')  // Arabic decimal/comma
-      .replace(/,/g, '.');     // Western comma to decimal dot
+      .replace(/\u066B/g, '.') // Arabic decimal separator
+      .replace(/،/g, ',');     // Arabic comma
     if (converted !== node.value) {
       const pos = node.selectionStart;
       node.value = converted;
@@ -324,9 +332,16 @@ function bindUI(){
   });
 
   // Listen to canvas signature changes
-  el('signatureCanvas').addEventListener('signatureChanged', () => {
+  el('signatureCanvas').addEventListener('signatureChanged', (event) => {
     if (el('signatureMode').value === 'canvas'){
-      signatureDataUrl = window.signatureManager?.hasDrawing() ? window.signatureManager.getDataURL() : null;
+      const hasDrawing = !!event?.detail?.hasDrawing;
+      if (typeof event?.detail?.dataUrl === 'string') {
+        signatureDataUrl = hasDrawing ? event.detail.dataUrl : null;
+      } else {
+        signatureDataUrl = hasDrawing && window.signatureManager?.hasDrawing()
+          ? window.signatureManager.getDataURL()
+          : null;
+      }
       refresh();
     }
   });
@@ -349,8 +364,6 @@ function bindUI(){
   };
   const b1 = el('btn-export');
   if (b1) b1.addEventListener('click', doExport);
-  const b2 = el('btn-export2');
-  if (b2) b2.addEventListener('click', doExport);
 
   // Preview zoom controls
   const zin = el('btn-zoomin');
@@ -381,8 +394,15 @@ function bindUI(){
     }
   });
 
-  // Improve mobile keyboard UX: avoid accidental zoom on iOS
-  document.addEventListener('gesturestart', (e) => e.preventDefault?.(), { passive:false });
+  // Prevent accidental viewport zoom only inside active interactive surfaces.
+  const signatureCanvas = el('signatureCanvas');
+  if (signatureCanvas){
+    signatureCanvas.addEventListener('gesturestart', (e) => e.preventDefault?.(), { passive:false });
+  }
+  const viewerViewport = el('viewerViewport');
+  if (viewerViewport){
+    viewerViewport.addEventListener('gesturestart', (e) => e.preventDefault?.(), { passive:false });
+  }
 }
 
 function bindMobileTabs(){
@@ -549,8 +569,22 @@ async function handleAttachmentFiles(fileList){
   const files = Array.from(fileList);
   let addedCount = 0;
   let skippedCount = 0;
+  let skippedByLimits = 0;
+  let firstLimitError = '';
+
+  let totalPages = attachmentFiles.reduce((sum, att) => sum + (att.pageCount || 1), 0);
+  let totalSizeBytes = attachmentFiles.reduce((sum, att) => sum + (att.size || 0), 0);
 
   for (const file of files){
+    const projectedFileCount = attachmentFiles.length + addedCount + 1;
+    if (projectedFileCount > MAX_ATTACHMENT_FILES){
+      skippedByLimits++;
+      if (!firstLimitError) {
+        firstLimitError = `الحد الأقصى للمرفقات هو ${MAX_ATTACHMENT_FILES} ملف`;
+      }
+      break;
+    }
+
     // Validate type
     if (!ALLOWED_ATTACHMENT_TYPES.includes(file.type)){
       skippedCount++;
@@ -560,6 +594,16 @@ async function handleAttachmentFiles(fileList){
     // Validate size
     if (file.size > MAX_ATTACHMENT_SIZE){
       showToast(`الملف "${file.name}" كبير جدًا (الحد الأقصى 10 ميجا)`, 'error');
+      skippedCount++;
+      continue;
+    }
+
+    const projectedSize = totalSizeBytes + file.size;
+    if (projectedSize > MAX_ATTACHMENT_TOTAL_SIZE){
+      skippedByLimits++;
+      if (!firstLimitError) {
+        firstLimitError = `إجمالي حجم المرفقات يتجاوز ${(MAX_ATTACHMENT_TOTAL_SIZE / (1024 * 1024)).toFixed(0)} ميجا`;
+      }
       skippedCount++;
       continue;
     }
@@ -585,6 +629,16 @@ async function handleAttachmentFiles(fileList){
     }
 
     // Add file with metadata
+    const projectedPages = totalPages + pageCount;
+    if (projectedPages > MAX_ATTACHMENT_TOTAL_PAGES){
+      skippedByLimits++;
+      if (!firstLimitError) {
+        firstLimitError = `إجمالي صفحات المرفقات يتجاوز ${MAX_ATTACHMENT_TOTAL_PAGES} صفحة`;
+      }
+      skippedCount++;
+      continue;
+    }
+
     attachmentFiles.push({
       file,
       name: file.name,
@@ -595,12 +649,17 @@ async function handleAttachmentFiles(fileList){
     });
 
     addedCount++;
+    totalPages = projectedPages;
+    totalSizeBytes = projectedSize;
   }
 
-  if (skippedCount > 0 && addedCount === 0){
+  if (skippedCount > 0 && addedCount === 0 && !skippedByLimits){
     showToast('نوع الملف غير مدعوم (PNG, JPG, WebP, PDF فقط)', 'error');
   } else if (addedCount > 0){
     showToast(`تم إضافة ${addedCount} ملف${addedCount > 1 ? 'ات' : ''}`, 'success');
+  }
+  if (skippedByLimits > 0 && firstLimitError) {
+    showToast(firstLimitError, 'error');
   }
 
   // Generate thumbnails and update UI
@@ -618,7 +677,10 @@ async function getPdfPageCount(file){
 
   const pdfjsLib = await window.loadPdfJs();
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const init = window.getPdfDocumentInit
+    ? window.getPdfDocumentInit(arrayBuffer)
+    : { data: arrayBuffer, disableWorker: true };
+  const pdf = await pdfjsLib.getDocument(init).promise;
   const pageCount = pdf.numPages;
   pdf.destroy();
   return pageCount;
@@ -692,7 +754,10 @@ async function generatePdfThumbnail(file){
 
   const pdfjsLib = await window.loadPdfJs();
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const init = window.getPdfDocumentInit
+    ? window.getPdfDocumentInit(arrayBuffer)
+    : { data: arrayBuffer, disableWorker: true };
+  const pdf = await pdfjsLib.getDocument(init).promise;
 
   if (pdf.numPages < 1){
     pdf.destroy();
@@ -1169,6 +1234,7 @@ function validateBeforeExport(){
 
   const type = getAllowedLetterType();
   const missing = [];
+  const invalidAmountFields = [];
 
   if (!el('date').value) missing.push('التاريخ');
   if (!String(el('jobTitle')?.value || '').trim()) missing.push('المسمى الوظيفي');
@@ -1176,13 +1242,29 @@ function validateBeforeExport(){
   if (!String(el('subject')?.value || '').trim()) missing.push('الموضوع');
 
   if (type === 'custody') {
-    if (!parseAmount(el('custodyAmount')?.value)) missing.push('مبلغ العهدة');
+    const raw = String(el('custodyAmount')?.value || '').trim();
+    const parsed = parseAmount(raw);
+    if (!raw) missing.push('مبلغ العهدة');
+    else if (parsed == null) invalidAmountFields.push('مبلغ العهدة');
   }
   if (isGeneralFinancialType(type)) {
-    if (!parseAmount(el('financialAmount')?.value)) missing.push('المبلغ المطلوب');
+    const raw = String(el('financialAmount')?.value || '').trim();
+    const parsed = parseAmount(raw);
+    if (!raw) missing.push('المبلغ المطلوب');
+    else if (parsed == null) invalidAmountFields.push('المبلغ المطلوب');
   }
   if (type === 'close_custody') {
-    if (!parseAmount(el('usedAmount')?.value) && !parseAmount(el('remainingAmount')?.value)) {
+    const usedRaw = String(el('usedAmount')?.value || '').trim();
+    const remainingRaw = String(el('remainingAmount')?.value || '').trim();
+    const usedAmount = parseAmount(usedRaw);
+    const remainingAmount = parseAmount(remainingRaw);
+
+    if (usedRaw && usedAmount == null) invalidAmountFields.push('المبلغ المستخدم');
+    if (remainingRaw && remainingAmount == null) invalidAmountFields.push('المبلغ المتبقي');
+
+    if (!usedRaw && !remainingRaw) {
+      missing.push('المبلغ المستخدم أو المتبقي');
+    } else if (usedAmount == null && remainingAmount == null) {
       missing.push('المبلغ المستخدم أو المتبقي');
     }
   }
@@ -1190,6 +1272,11 @@ function validateBeforeExport(){
   // Require agreement checkbox for financial letter types.
   if (isAgreementRequiredType(type) && !el('agreeTerms')?.checked) {
     showToast('يجب الموافقة على الإقرار والتعهد قبل التصدير', 'error');
+    return false;
+  }
+
+  if (invalidAmountFields.length) {
+    showToast('تنسيق مبلغ غير صحيح: ' + invalidAmountFields.join('، '), 'error');
     return false;
   }
 
@@ -1207,5 +1294,12 @@ window.refresh = refresh;
 window.loadSessionProjects = loadSessionProjects;
 window.buildProjectDropdown = buildProjectDropdown;
 window.resetEditorState = resetEditorState;
+window.rebindFormListeners = function(ids){
+  if (Array.isArray(ids) && ids.length) {
+    bindRefreshByIds(ids);
+    return;
+  }
+  bindRefreshByIds(WATCH_IDS);
+};
 
 document.addEventListener('DOMContentLoaded', init);

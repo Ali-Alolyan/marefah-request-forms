@@ -374,7 +374,7 @@
 
 
       <div class="preview__footer muted">
-        على الجوال: استخدم زر <b>المعاينة</b> بالأعلى ثم <b>تصدير PDF</b>.
+        على الجوال: استخدم زر <b>المعاينة</b> في الشريط السفلي ثم <b>تصدير PDF</b>.
       </div>
     </section>
   </main>
@@ -390,6 +390,14 @@
   <!-- PDF export libs (for iOS parity). Used by js/print.js. -->
   <!-- PDF export libs are loaded on-demand (see js/print.js) to improve reliability on iOS -->
 
+
+  <!-- Export progress overlay -->
+  <div id="exportSpinner" class="export-spinner" style="display:none" role="status" aria-live="polite" aria-label="جاري تجهيز ملف PDF">
+    <div class="export-spinner__card">
+      <div class="spinner" aria-hidden="true"></div>
+      <div>جاري تجهيز ملف PDF…</div>
+    </div>
+  </div>
 
   <!-- Toast notification container -->
   <div id="toastContainer" class="toast-container" aria-live="polite"></div>

@@ -46,6 +46,35 @@
     return '';
   }
 
+  function normalizeAccountCode(raw) {
+    return String(raw || '')
+      .trim()
+      .replace(/\s+/g, '')
+      .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
+      .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0));
+  }
+
+  function bindRefreshForField(node) {
+    if (!node || node.dataset.refreshBound === '1') return;
+    const trigger = function () {
+      if (typeof window.refresh === 'function') window.refresh();
+    };
+    node.addEventListener('input', trigger);
+    node.addEventListener('change', trigger);
+    node.dataset.refreshBound = '1';
+  }
+
+  function rebindFormListeners(ids) {
+    if (typeof window.rebindFormListeners === 'function') {
+      window.rebindFormListeners(ids);
+      return;
+    }
+    if (!Array.isArray(ids)) return;
+    ids.forEach(function (id) {
+      bindRefreshForField(document.getElementById(id));
+    });
+  }
+
   function normalizeProjectRow(row) {
     if (!row || typeof row !== 'object') return null;
 
@@ -294,12 +323,12 @@
       opt2.textContent = session.job_title_secondary;
       sel.appendChild(opt2);
       titleContainer.parentNode.replaceChild(sel, titleContainer);
-      sel.addEventListener('change', function() {
-        if (typeof window.refresh === 'function') window.refresh();
-      });
+      bindRefreshForField(sel);
+      rebindFormListeners(['jobTitle']);
     } else if (titleContainer) {
       titleContainer.value = session.job_title;
       titleContainer.readOnly = true;
+      bindRefreshForField(titleContainer);
     }
 
     const logoutBtn = getLogoutBtn();
@@ -318,9 +347,12 @@
       inp.className = titleEl.className;
       inp.placeholder = 'مثال: مدير إدارة البرامج والمشاريع';
       titleEl.parentNode.replaceChild(inp, titleEl);
+      bindRefreshForField(inp);
+      rebindFormListeners(['jobTitle']);
     } else if (titleEl) {
       titleEl.value = '';
       titleEl.readOnly = false;
+      bindRefreshForField(titleEl);
     }
 
     const logoutBtn = getLogoutBtn();
@@ -328,6 +360,17 @@
   }
 
   /* ---- Login handler ---- */
+
+  async function lookupEmployee(codeDigits) {
+    let result = await supabase.rpc('lookup_employee', { p_account_code: codeDigits });
+    if (!result.error) return result;
+
+    const msg = String(result.error && result.error.message || '');
+    const looksLikeTypeMismatch = /invalid input syntax|cannot cast|type mismatch|operator does not exist|structure of query/i.test(msg);
+    if (!looksLikeTypeMismatch) return result;
+
+    return supabase.rpc('lookup_employee', { p_account_code: Number(codeDigits) });
+  }
 
   async function handleLogin(code) {
     hideError();
@@ -337,15 +380,15 @@
       return;
     }
 
-    const codeNum = Number(code);
-    if (!code || isNaN(codeNum) || code.length !== 9) {
+    const codeDigits = normalizeAccountCode(code);
+    if (!/^\d{9}$/.test(codeDigits)) {
       showError('يرجى إدخال كود حساب مكون من 9 أرقام.');
       return;
     }
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('lookup_employee', { p_account_code: codeNum });
+      const { data, error } = await lookupEmployee(codeDigits);
       if (error) {
         if (error.message && error.message.includes('RATE_LIMIT_EXCEEDED')) {
           showError('محاولات كثيرة جدًا. يرجى الانتظار 15 دقيقة ثم المحاولة مرة أخرى.');
@@ -364,7 +407,7 @@
       }
 
       const session = {
-        account_code: codeNum,
+        account_code: codeDigits,
         full_name: normalized.full_name,
         job_title: normalized.job_title,
         job_title_secondary: normalized.job_title_secondary || null,

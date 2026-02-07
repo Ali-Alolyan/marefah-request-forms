@@ -1,6 +1,7 @@
 /*
  * Offline, cross-browser PDF export.
- * - No external libraries
+ * - Core letter export works without external libraries.
+ * - PDF attachments use pdf.js (local-first, CDN fallback).
  * - Works on iPhone Safari/Chrome and desktop Safari/Chrome
  * - Renders pages to canvas at a stable DPI, then builds a PDF with embedded JPEG pages.
  * - Supports image and PDF file attachments appended after letter pages.
@@ -60,6 +61,17 @@
     a.click();
     a.remove();
     setTimeout(()=>URL.revokeObjectURL(url), 30_000);
+  }
+
+  function releaseCanvas(canvas){
+    if (!canvas) return;
+    canvas.width = 1;
+    canvas.height = 1;
+  }
+
+  function canvasToJpegPage(canvas, quality = 0.92){
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    return { jpegBytes: dataURLToBytes(dataUrl), wPx: canvas.width, hPx: canvas.height };
   }
 
   /**
@@ -130,16 +142,18 @@
   /**
    * Process a PDF attachment: render each page to A4 canvas
    */
-  async function processPdfAttachment(file, dpi, targetW, targetH){
+  async function processPdfAttachment(file, dpi, targetW, targetH, onCanvas){
     if (!window.loadPdfJs){
       throw new Error('PDF loader not available');
     }
 
     const pdfjsLib = await window.loadPdfJs();
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
-    const canvases = [];
+    const init = window.getPdfDocumentInit
+      ? window.getPdfDocumentInit(arrayBuffer)
+      : { data: arrayBuffer, disableWorker: true };
+    const pdf = await pdfjsLib.getDocument(init).promise;
+    let renderedCount = 0;
 
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++){
       const page = await pdf.getPage(pageNum);
@@ -176,25 +190,28 @@
         viewport: scaledViewport
       }).promise;
 
-      canvases.push(canvas);
+      if (typeof onCanvas === 'function'){
+        await onCanvas(canvas);
+      }
+      releaseCanvas(canvas);
+      renderedCount++;
     }
 
     pdf.destroy();
-    return canvases;
+    return renderedCount;
   }
 
   /**
-   * Process all attachment files and return array of canvases
+   * Process all attachment files and append pages in a streaming fashion.
    */
-  async function processAttachments(attachmentFiles, dpi){
+  async function processAttachments(attachmentFiles, dpi, pages){
     if (!attachmentFiles || attachmentFiles.length === 0){
-      return [];
+      return 0;
     }
 
     const targetW = A4_PX[dpi]?.w || A4_PX[300].w;
     const targetH = A4_PX[dpi]?.h || A4_PX[300].h;
-
-    const allCanvases = [];
+    let renderedPages = 0;
 
     // Process files sequentially to manage memory on iOS
     for (const attachment of attachmentFiles){
@@ -202,12 +219,15 @@
 
       try {
         if (type === 'application/pdf'){
-          const pdfCanvases = await processPdfAttachment(file, dpi, targetW, targetH);
-          allCanvases.push(...pdfCanvases);
+          renderedPages += await processPdfAttachment(file, dpi, targetW, targetH, async (canvas) => {
+            pages.push(canvasToJpegPage(canvas));
+          });
         } else {
           // Image file
           const canvas = await processImageAttachment(file, targetW, targetH);
-          allCanvases.push(canvas);
+          pages.push(canvasToJpegPage(canvas));
+          releaseCanvas(canvas);
+          renderedPages++;
         }
       } catch (e) {
         console.warn(`Failed to process attachment "${attachment.name}":`, e);
@@ -215,7 +235,7 @@
       }
     }
 
-    return allCanvases;
+    return renderedPages;
   }
 
   async function exportPDF(){
@@ -273,28 +293,25 @@
         throw lastErr || new Error('no pages');
       }
 
+      // Convert letter pages to JPEG bytes and release canvases immediately.
+      const pages = [];
+      for (const canvas of canvases){
+        pages.push(canvasToJpegPage(canvas));
+        releaseCanvas(canvas);
+      }
+      canvases.length = 0;
+
       // Process attachment files if any
-      let attachmentCanvases = [];
+      let attachmentPages = 0;
       if (state.attachmentFiles && state.attachmentFiles.length > 0){
         console.log(`[PDF] processing ${state.attachmentFiles.length} attachment(s)…`);
         try {
-          attachmentCanvases = await processAttachments(state.attachmentFiles, usedDpi);
-          console.log(`[PDF] ${attachmentCanvases.length} attachment page(s) rendered`);
+          attachmentPages = await processAttachments(state.attachmentFiles, usedDpi, pages);
+          console.log(`[PDF] ${attachmentPages} attachment page(s) rendered`);
         } catch (e) {
           console.warn('[PDF] attachment processing failed:', e);
           toast('تعذر معالجة بعض المرفقات', 'error');
         }
-      }
-
-      // Combine letter canvases and attachment canvases
-      const allCanvases = [...canvases, ...attachmentCanvases];
-
-      // Convert canvases to JPEG bytes (progressive, good compression)
-      const pages = [];
-      for (const c of allCanvases){
-        const dataUrl = c.toDataURL('image/jpeg', 0.92);
-        const bytes = dataURLToBytes(dataUrl);
-        pages.push({ jpegBytes: bytes, wPx: c.width, hPx: c.height });
       }
 
       const pdfBytes = buildPdfFromJpegs(pages);
@@ -302,7 +319,7 @@
       const filename = `خطاب-${(state.subject || 'document').slice(0,24).replace(/\s+/g,'_')}.pdf`;
       downloadBlob(blob, filename);
 
-      const attachmentNote = attachmentCanvases.length > 0 ? ` (مع ${attachmentCanvases.length} مرفق)` : '';
+      const attachmentNote = attachmentPages > 0 ? ` (مع ${attachmentPages} صفحة مرفقات)` : '';
       toast('تم تجهيز ملف PDF' + attachmentNote);
     }catch(err){
       console.error('[PDF] export failed:', err);

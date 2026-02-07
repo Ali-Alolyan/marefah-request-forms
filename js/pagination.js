@@ -13,6 +13,7 @@ const PAGE = { maxPages: 20 };
 
 function buildPages(state, blocks){
   const pages = [];
+  let truncated = false;
 
   // Measurement root (offscreen)
   const root = document.createElement('div');
@@ -35,16 +36,32 @@ function buildPages(state, blocks){
   };
 
   const startNewPage = () => {
+    if (pageIndex + 1 >= PAGE.maxPages){
+      truncated = true;
+      return false;
+    }
     commitPage();
     pageIndex++;
     pageShell = createPageShell(state, pageIndex+1, 1);
     root.appendChild(pageShell);
     contentBox = pageShell.querySelector('.letterContent');
+    return true;
+  };
+
+  const addTruncationNotice = () => {
+    const note = document.createElement('div');
+    note.className = 'letterPara sigMetaRow--placeholder';
+    note.textContent = 'تم اختصار جزء من المحتوى بسبب تجاوز الحد الأقصى للصفحات.';
+    const added = tryAppendBlockWithSplit(contentBox, note);
+    if (!added.ok && startNewPage()){
+      tryAppendBlockWithSplit(contentBox, note);
+    }
   };
 
   const queue = blocks.slice();
 
   while (queue.length){
+    if (truncated) break;
     const block = queue.shift();
 
     const res = tryAppendBlockWithSplit(contentBox, block);
@@ -56,7 +73,7 @@ function buildPages(state, blocks){
     }
 
     // Doesn't fit: move to next page and try again
-    startNewPage();
+    if (!startNewPage()) break;
     const res2 = tryAppendBlockWithSplit(contentBox, block);
     if (res2.ok){
       if (res2.remainder){
@@ -65,8 +82,23 @@ function buildPages(state, blocks){
       continue;
     }
 
-    // Still doesn't fit => drop to avoid infinite loop
-    console.warn('Block too large to fit page:', block);
+    // Still doesn't fit => force split to avoid silent data loss.
+    const forced = forceSplitBlock(block);
+    if (forced){
+      const forcedRes = tryAppendBlockWithSplit(contentBox, forced.first);
+      if (forcedRes.ok){
+        if (forcedRes.remainder) queue.unshift(forcedRes.remainder);
+        if (forced.remainder) queue.unshift(forced.remainder);
+        continue;
+      }
+    }
+
+    truncated = true;
+    console.warn('Block too large to fit page and could not be split safely:', block);
+  }
+
+  if (truncated){
+    addTruncationNotice();
   }
 
   // finalize
@@ -81,6 +113,33 @@ function buildPages(state, blocks){
   }
 
   return pages.slice(0, total);
+}
+
+function forceSplitBlock(block){
+  const text = String(block?.textContent || '').replace(/\s+/g, ' ').trim();
+  if (!text || text.length < 80) return null;
+
+  const mid = Math.floor(text.length / 2);
+  const leftCut = text.lastIndexOf(' ', mid);
+  const rightCut = text.indexOf(' ', mid);
+  const cut = leftCut > 40 ? leftCut : rightCut > 40 ? rightCut : -1;
+  if (cut < 0) return null;
+
+  const firstText = text.slice(0, cut).trim();
+  const remainderText = text.slice(cut).trim();
+  if (!firstText || !remainderText) return null;
+
+  const first = document.createElement('div');
+  first.className = block.className || 'letterPara';
+  first.setAttribute('data-splittable', 'true');
+  first.textContent = firstText;
+
+  const remainder = document.createElement('div');
+  remainder.className = block.className || 'letterPara';
+  remainder.setAttribute('data-splittable', 'true');
+  remainder.textContent = `… ${remainderText}`;
+
+  return { first, remainder };
 }
 
 function tryAppendBlockWithSplit(contentBox, block){
@@ -150,7 +209,7 @@ function tryAppendBlockWithSplit(contentBox, block){
   }
 
   const remainder = block.cloneNode(true);
-  (remainder.querySelector('[data-splittable="true"]') || remainder).textContent = remainderText;
+  (remainder.querySelector('[data-splittable="true"]') || remainder).textContent = `… ${remainderText}`;
 
   return { ok: true, remainder };
 }

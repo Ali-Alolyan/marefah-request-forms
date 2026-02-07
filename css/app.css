@@ -280,7 +280,9 @@ body{
 
   /* Tablet save/load action buttons in bottom tabs */
   .bottomTabs__action{
-    display: none;
+    display: inline-flex;
+    font-size: 12px;
+    padding: 8px 10px;
   }
 
   /* Make space for bottom tabs */
@@ -773,6 +775,14 @@ body{
 :root[data-theme="dark"] .viewerLoading{
   background: rgba(0,0,0,0.35);
 }
+.spinner{
+  width: 24px;
+  height: 24px;
+  border: 3px solid color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+  border-top-color: var(--md-sys-color-primary);
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+}
 
 .viewerPager{
   display:flex;
@@ -790,6 +800,30 @@ body{
   padding: 6px 2px 0;
   font-size: 12px;
   line-height: 1.45;
+}
+
+/* Export overlay */
+.export-spinner{
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  display: none;
+  place-items: center;
+  background: color-mix(in srgb, var(--md-sys-color-surface) 62%, transparent);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.export-spinner__card{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+  font-weight: 700;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.18);
 }
 
 /* Show the mobile preview only on phones */
