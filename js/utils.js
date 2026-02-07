@@ -20,12 +20,47 @@ function formatNumberArabic(n){
   return new Intl.NumberFormat('en-US', { useGrouping: true, maximumFractionDigits: 0 }).format(num);
 }
 
+function formatAmountArabic(n){
+  // Money formatter: keep grouping and allow decimals up to 2 digits.
+  const num = Number(n);
+  if (!Number.isFinite(num)) return '';
+  return new Intl.NumberFormat('en-US', {
+    useGrouping: true,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  }).format(num);
+}
+
 
 function parseAmount(str){
   if (str == null) return null;
-  const s = String(str).trim().replace(/[^\d.]/g,'');
-  if (!s) return null;
-  const n = Number(s);
+  const normalized = String(str).trim()
+    .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0))
+    .replace(/\u066B/g, '.')   // Arabic decimal separator (٫)
+    .replace(/\u066C/g, ',')   // Arabic thousands separator (٬)
+    .replace(/،/g, ',')        // Arabic comma
+    .replace(/\s+/g, '')
+    .replace(/[^\d.,]/g, '');
+
+  if (!normalized) return null;
+
+  const lastDot = normalized.lastIndexOf('.');
+  const lastComma = normalized.lastIndexOf(',');
+  const sepIndex = Math.max(lastDot, lastComma);
+
+  let compact;
+  if (sepIndex >= 0){
+    const intPart = normalized.slice(0, sepIndex).replace(/[.,]/g, '');
+    const fracPart = normalized.slice(sepIndex + 1).replace(/[.,]/g, '');
+    compact = fracPart ? `${intPart}.${fracPart}` : intPart;
+  } else {
+    compact = normalized.replace(/[.,]/g, '');
+  }
+
+  if (!compact) return null;
+
+  const n = Number(compact);
   return Number.isFinite(n) ? n : null;
 }
 

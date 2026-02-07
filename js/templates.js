@@ -4,7 +4,6 @@
  */
 
 const EXECUTIVE_DIRECTOR = 'سعادة المدير التنفيذي/ أ.د. محمد عبدالعزيز العواجي حفظه الله';
-const GENERAL_FINANCIAL_DEFAULT_DETAILS = 'أتقدم لسعادتكم بطلب اعتماد مبلغ مالي لتغطية المصروفات التشغيلية المعتمدة لتنفيذ الأنشطة ضمن خطة العمل، على أن يتم الصرف وفق السياسات والإجراءات المالية المعتمدة في الجمعية.';
 
 function shouldShowCostCenterLine(state){
   if (state.type === 'custody' || state.type === 'close_custody') return true;
@@ -12,6 +11,23 @@ function shouldShowCostCenterLine(state){
     return !!state.financialIncludeCostCenter && !!(state.costCenter || state.programNameAr || state.projectName);
   }
   return false;
+}
+
+function buildCostCenterBlock(state){
+  if (!shouldShowCostCenterLine(state)) return null;
+
+  const cc = document.createElement('div');
+  cc.className = 'letterPara';
+  let ccHtml = `<span class="letterLabel">مركز التكلفة:</span>
+    <span class="inlineCode" dir="ltr">${escapeHtml(state.costCenter || '—')}</span>`;
+  if (state.programNameAr) {
+    ccHtml += `&nbsp;&nbsp;|&nbsp;&nbsp;<span class="letterLabel">البرنامج:</span> ${escapeHtml(state.programNameAr)}`;
+  }
+  if (state.projectName) {
+    ccHtml += `&nbsp;&nbsp;|&nbsp;&nbsp;<span class="letterLabel">المشروع:</span> ${escapeHtml(state.projectName)}`;
+  }
+  cc.innerHTML = ccHtml;
+  return cc;
 }
 
 function buildSubjectByType(type, costCenter){
@@ -41,22 +57,7 @@ function renderLetterBlocks(state){
   blocks.push(to);
 
   blocks.push(paragraph('السلام عليكم ورحمة الله وبركاته، وبعد:'));
-
-  // Cost center is needed for custody/close-custody and optional for general_financial.
-  if (shouldShowCostCenterLine(state)) {
-    const cc = document.createElement('div');
-    cc.className = 'letterPara';
-    let ccHtml = `<span class="letterLabel">مركز التكلفة:</span>
-      <span class="inlineCode" dir="ltr">${escapeHtml(state.costCenter || '—')}</span>`;
-    if (state.programNameAr) {
-      ccHtml += `&nbsp;&nbsp;|&nbsp;&nbsp;<span class="letterLabel">البرنامج:</span> ${escapeHtml(state.programNameAr)}`;
-    }
-    if (state.projectName) {
-      ccHtml += `&nbsp;&nbsp;|&nbsp;&nbsp;<span class="letterLabel">المشروع:</span> ${escapeHtml(state.projectName)}`;
-    }
-    cc.innerHTML = ccHtml;
-    blocks.push(cc);
-  }
+  const costCenterBlock = buildCostCenterBlock(state);
 
   if (state.type === 'custody'){
     let custodyDesc;
@@ -73,7 +74,7 @@ function renderLetterBlocks(state){
 
     blocks.push(labelAndText('تفاصيل الطلب:', state.details));
 
-    const amt = state.custodyAmount != null ? `${formatNumberArabic(state.custodyAmount)} <span class="icon-saudi_riyal"></span>` : '—';
+    const amt = state.custodyAmount != null ? `${formatAmountArabic(state.custodyAmount)} <span class="icon-saudi_riyal"></span>` : '—';
     blocks.push(paragraph(`<span class="letterLabel">مبلغ العهدة المطلوب:</span> ${amt}`));
 
     blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،'));
@@ -92,8 +93,8 @@ function renderLetterBlocks(state){
       `أرفع لسعادتكم طلب إغلاق عهدة مالية ${closeDesc}، وذلك بعد إتمام الصرف وفق التفاصيل أدناه.`
     ));
 
-    const used = state.usedAmount != null ? `${formatNumberArabic(state.usedAmount)} <span class="icon-saudi_riyal"></span>` : '—';
-    const remaining = state.remainingAmount != null ? `${formatNumberArabic(state.remainingAmount)} <span class="icon-saudi_riyal"></span>` : '—';
+    const used = state.usedAmount != null ? `${formatAmountArabic(state.usedAmount)} <span class="icon-saudi_riyal"></span>` : '—';
+    const remaining = state.remainingAmount != null ? `${formatAmountArabic(state.remainingAmount)} <span class="icon-saudi_riyal"></span>` : '—';
     const att = state.attachments != null ? formatNumberArabic(state.attachments) : '—';
 
     blocks.push(paragraph(`<span class="letterLabel">المبلغ المستخدم:</span> ${used}`));
@@ -105,10 +106,16 @@ function renderLetterBlocks(state){
   }
 
   if (state.type === 'general_financial'){
-    const financialDetails = state.details || GENERAL_FINANCIAL_DEFAULT_DETAILS;
-    blocks.push(labelAndText('تفاصيل الطلب المالي:', financialDetails));
+    if (state.details) {
+      blocks.push(labelAndText('تفاصيل الخطاب:', state.details));
+    } else {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'letterPara sigMetaRow--placeholder';
+      placeholder.textContent = 'تفاصيل الخطاب';
+      blocks.push(placeholder);
+    }
 
-    const amount = state.financialAmount != null ? `${formatNumberArabic(state.financialAmount)} <span class="icon-saudi_riyal"></span>` : '—';
+    const amount = state.financialAmount != null ? `${formatAmountArabic(state.financialAmount)} <span class="icon-saudi_riyal"></span>` : '—';
     blocks.push(paragraph(`<span class="letterLabel">المبلغ المطلوب:</span> ${amount}`));
 
     blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،'));
@@ -124,6 +131,10 @@ function renderLetterBlocks(state){
       blocks.push(placeholder);
     }
     blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،'));
+  }
+
+  if (costCenterBlock) {
+    blocks.push(costCenterBlock);
   }
 
   blocks.push(signatureBlock(state));

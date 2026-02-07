@@ -28,7 +28,6 @@
   };
 
   const EXECUTIVE_DIRECTOR = 'سعادة المدير التنفيذي/ أ.د. محمد عبدالعزيز العواجي حفظه الله';
-  const GENERAL_FINANCIAL_DEFAULT_DETAILS = 'أتقدم لسعادتكم بطلب اعتماد مبلغ مالي لتغطية المصروفات التشغيلية المعتمدة لتنفيذ الأنشطة ضمن خطة العمل، على أن يتم الصرف وفق السياسات والإجراءات المالية المعتمدة في الجمعية.';
 
   function mmToPx(mm, dpi){
     return mm * dpi / MM_PER_IN;
@@ -120,18 +119,6 @@
     blocks.push({ kind: 'to', text: EXECUTIVE_DIRECTOR });
     blocks.push({ kind: 'para', text: 'السلام عليكم ورحمة الله وبركاته، وبعد:' });
 
-    const shouldShowCostCenterLine =
-      type === 'custody' ||
-      type === 'close_custody' ||
-      (type === 'general_financial' && !!state.financialIncludeCostCenter && !!(state.costCenter || state.programNameAr || state.projectName));
-
-    if (shouldShowCostCenterLine){
-      const cc = state.costCenter ? ltrWrap(state.costCenter) : '—';
-      const program = state.programNameAr ? ` | البرنامج: ${state.programNameAr}` : '';
-      const project = state.projectName ? ` | المشروع: ${state.projectName}` : '';
-      blocks.push({ kind: 'para', label: 'مركز التكلفة:', text: `${cc}${program}${project}`, ltrLabelValue: true });
-    }
-
     if (type === 'custody'){
       let custodyDesc;
       if (state.projectName && state.programNameAr) {
@@ -145,7 +132,7 @@
       if (state.details) blocks.push({ kind: 'plaintext', text: state.details });
 
       const amt = ensureNumber(state.custodyAmount);
-      const amtTxt = amt != null ? `${formatNumberArabic(amt)} ريال سعودي` : '—';
+      const amtTxt = amt != null ? `${formatAmountArabic(amt)} ريال سعودي` : '—';
       blocks.push({ kind: 'para', label: 'مبلغ العهدة المطلوب:', text: amtTxt });
       blocks.push({ kind: 'para', text: 'شاكرين لسعادتكم حسن تعاونكم،' });
       if (state.agreedToTerms) {
@@ -167,8 +154,8 @@
       const used = ensureNumber(state.usedAmount);
       const remaining = ensureNumber(state.remainingAmount);
       const att = ensureNumber(state.attachments);
-      blocks.push({ kind: 'para', label: 'المبلغ المستخدم:', text: used != null ? `${formatNumberArabic(used)} ريال سعودي` : '—' });
-      blocks.push({ kind: 'para', label: 'المبلغ المتبقي:', text: remaining != null ? `${formatNumberArabic(remaining)} ريال سعودي` : '—' });
+      blocks.push({ kind: 'para', label: 'المبلغ المستخدم:', text: used != null ? `${formatAmountArabic(used)} ريال سعودي` : '—' });
+      blocks.push({ kind: 'para', label: 'المبلغ المتبقي:', text: remaining != null ? `${formatAmountArabic(remaining)} ريال سعودي` : '—' });
       blocks.push({ kind: 'para', label: 'عدد المشفوعات:', text: att != null ? formatNumberArabic(att) : '—' });
       blocks.push({ kind: 'para', text: 'وسيتم إرفاق المشفوعات الداعمة (الفواتير/المستندات) ضمن إجراءات الإغلاق لدى الإدارة المختصة.' });
       blocks.push({ kind: 'para', text: 'شاكرين لسعادتكم حسن تعاونكم،' });
@@ -178,11 +165,14 @@
     }
 
     if (type === 'general_financial'){
-      const detailsText = state.details || GENERAL_FINANCIAL_DEFAULT_DETAILS;
-      blocks.push({ kind: 'labeltext', label: 'تفاصيل الطلب المالي:', text: detailsText });
+      if (state.details) {
+        blocks.push({ kind: 'plaintext', text: state.details });
+      } else {
+        blocks.push({ kind: 'placeholder', text: 'تفاصيل الخطاب' });
+      }
 
       const amount = ensureNumber(state.financialAmount);
-      const amountText = amount != null ? `${formatNumberArabic(amount)} ريال سعودي` : '—';
+      const amountText = amount != null ? `${formatAmountArabic(amount)} ريال سعودي` : '—';
       blocks.push({ kind: 'para', label: 'المبلغ المطلوب:', text: amountText });
       blocks.push({ kind: 'para', text: 'شاكرين لسعادتكم حسن تعاونكم،' });
       if (state.agreedToTerms) {
@@ -197,6 +187,17 @@
         blocks.push({ kind: 'placeholder', text: 'تفاصيل الخطاب' });
       }
       blocks.push({ kind: 'para', text: 'شاكرين لسعادتكم حسن تعاونكم،' });
+    }
+
+    const shouldShowCostCenterLine =
+      type === 'custody' ||
+      type === 'close_custody' ||
+      (type === 'general_financial' && !!state.financialIncludeCostCenter && !!(state.costCenter || state.programNameAr || state.projectName));
+    if (shouldShowCostCenterLine){
+      const cc = state.costCenter ? ltrWrap(state.costCenter) : '—';
+      const program = state.programNameAr ? ` | البرنامج: ${state.programNameAr}` : '';
+      const project = state.projectName ? ` | المشروع: ${state.projectName}` : '';
+      blocks.push({ kind: 'para', label: 'مركز التكلفة:', text: `${cc}${program}${project}`, ltrLabelValue: true });
     }
 
     blocks.push({ kind: 'signature', applicantName: state.applicantName || '', jobTitle: state.jobTitle || '', signatureDataUrl: state.signatureDataUrl || null });

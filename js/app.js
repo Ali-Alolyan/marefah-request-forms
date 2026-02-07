@@ -260,7 +260,10 @@ function bindUI(){
     const node = e.target;
     const converted = node.value
       .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
-      .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0));
+      .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0))
+      .replace(/\u066C/g, '') // Arabic thousands separator
+      .replace(/[٫،]/g, '.')  // Arabic decimal/comma
+      .replace(/,/g, '.');     // Western comma to decimal dot
     if (converted !== node.value) {
       const pos = node.selectionStart;
       node.value = converted;
