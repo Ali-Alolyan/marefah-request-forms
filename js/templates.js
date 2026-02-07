@@ -74,7 +74,7 @@ function renderLetterBlocks(state){
 
     blocks.push(labelAndText('تفاصيل الطلب:', state.details));
 
-    const amt = state.custodyAmount != null ? `${formatAmountArabic(state.custodyAmount)} <span class="icon-saudi_riyal"></span>` : '—';
+    const amt = state.custodyAmount != null ? `${formatAmountArabic(state.custodyAmount)} ريال سعودي` : '—';
     blocks.push(paragraph(`<span class="letterLabel">مبلغ العهدة المطلوب:</span> ${amt}`));
 
     blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،'));
@@ -93,8 +93,8 @@ function renderLetterBlocks(state){
       `أرفع لسعادتكم طلب إغلاق عهدة مالية ${closeDesc}، وذلك بعد إتمام الصرف وفق التفاصيل أدناه.`
     ));
 
-    const used = state.usedAmount != null ? `${formatAmountArabic(state.usedAmount)} <span class="icon-saudi_riyal"></span>` : '—';
-    const remaining = state.remainingAmount != null ? `${formatAmountArabic(state.remainingAmount)} <span class="icon-saudi_riyal"></span>` : '—';
+    const used = state.usedAmount != null ? `${formatAmountArabic(state.usedAmount)} ريال سعودي` : '—';
+    const remaining = state.remainingAmount != null ? `${formatAmountArabic(state.remainingAmount)} ريال سعودي` : '—';
     const att = state.attachments != null ? formatNumberArabic(state.attachments) : '—';
 
     blocks.push(paragraph(`<span class="letterLabel">المبلغ المستخدم:</span> ${used}`));
@@ -115,7 +115,7 @@ function renderLetterBlocks(state){
       blocks.push(placeholder);
     }
 
-    const amount = state.financialAmount != null ? `${formatAmountArabic(state.financialAmount)} <span class="icon-saudi_riyal"></span>` : '—';
+    const amount = state.financialAmount != null ? `${formatAmountArabic(state.financialAmount)} ريال سعودي` : '—';
     blocks.push(paragraph(`<span class="letterLabel">المبلغ المطلوب:</span> ${amount}`));
 
     blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،'));

@@ -45,6 +45,21 @@ Mobile Preview Viewer
     });
   }
 
+  function releaseCanvas(canvas){
+    if (!canvas) return;
+    canvas.width = 1;
+    canvas.height = 1;
+  }
+
+  function revokeUrls(urls){
+    if (!Array.isArray(urls)) return;
+    urls.forEach((u) => {
+      if (typeof u === 'string' && u.startsWith('blob:')){
+        try { URL.revokeObjectURL(u); } catch (_) {}
+      }
+    });
+  }
+
   class MobilePreviewViewer{
     constructor(){
       this.root = document.getElementById('mobilePreview');
@@ -70,6 +85,7 @@ Mobile Preview Viewer
       this._raf = null;
       this._pendingState = null;
       this._debounce = null;
+      this._renderToken = 0;
 
       // pointer gestures
       this._pointers = new Map();
@@ -130,6 +146,7 @@ Mobile Preview Viewer
     schedule(state){
       if (!this.isReady()) return;
       this._pendingState = state;
+      this._renderToken++;
 
       // Only render when mobile + preview tab is active (saves battery)
       if (!isMobile() || !isPreviewView()) return;
@@ -144,23 +161,41 @@ Mobile Preview Viewer
 
       const state = this._pendingState;
       if (!state || !window.renderLetterToCanvases) return;
+      const renderToken = ++this._renderToken;
 
       this.setLoading(true);
 
       try{
         await waitFonts();
+        if (renderToken !== this._renderToken) return;
 
         // Render at a light DPI for preview
         const canvases = await window.renderLetterToCanvases(state, { dpi: PREVIEW_DPI, backgroundSrc: PREVIEW_BG });
         if (!canvases || !canvases.length) throw new Error('no pages');
+        if (renderToken !== this._renderToken) {
+          canvases.forEach(releaseCanvas);
+          return;
+        }
 
         // Convert canvases -> blob URLs
-        this.destroyPageUrls();
         const urls = [];
         for (const c of canvases){
+          if (renderToken !== this._renderToken) {
+            releaseCanvas(c);
+            revokeUrls(urls);
+            canvases.forEach(releaseCanvas);
+            return;
+          }
           const u = await blobUrlFromCanvas(c, 0.88);
+          releaseCanvas(c);
           urls.push(u);
         }
+        if (renderToken !== this._renderToken) {
+          revokeUrls(urls);
+          return;
+        }
+
+        this.destroyPageUrls();
 
         this.pageUrls = urls;
         this.pageCount = urls.length;

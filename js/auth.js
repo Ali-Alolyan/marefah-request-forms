@@ -6,6 +6,7 @@
   const SESSION_KEY = 'marefah-auth-session-v2';
   const OLD_SESSION_KEY = 'marefah-auth-session-v1';
   const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+  let currentSession = null;
 
   /* ---- Supabase client (with CDN failure detection) ---- */
 
@@ -205,8 +206,9 @@
   }
 
   function saveSession(data) {
-    data._savedAt = Date.now();
-    localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+    const payload = { ...data, _savedAt: Date.now() };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+    currentSession = payload;
   }
 
   function loadSession() {
@@ -214,19 +216,26 @@
       const raw = localStorage.getItem(SESSION_KEY);
       if (!raw) return null;
       const s = JSON.parse(raw);
-      if (!s || !s.full_name || !s.job_title || !s.account_code) return null;
+      if (!s || !s.account_code) return null;
+      if (typeof s._savedAt !== 'number' || !Number.isFinite(s._savedAt)) {
+        clearSession();
+        return null;
+      }
       // Expire session after 24 hours
-      if (s._savedAt && (Date.now() - s._savedAt) > SESSION_MAX_AGE_MS) {
+      if ((Date.now() - s._savedAt) > SESSION_MAX_AGE_MS) {
         clearSession();
         return null;
       }
       s.projects = normalizeProjects(s.projects);
       return s;
-    } catch (_) { /* corrupt */ }
+    } catch (_) {
+      clearSession();
+    }
     return null;
   }
 
   function clearSession() {
+    currentSession = null;
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(OLD_SESSION_KEY);
   }
@@ -372,6 +381,26 @@
     return supabase.rpc('lookup_employee', { p_account_code: Number(codeDigits) });
   }
 
+  async function hydrateSessionByCode(codeDigits) {
+    const { data, error } = await lookupEmployee(codeDigits);
+    if (error) {
+      throw error;
+    }
+
+    const normalized = normalizeLookupPayload(data);
+    if (!normalized || !normalized.full_name || !normalized.job_title) {
+      throw new Error('INVALID_ACCOUNT_PAYLOAD');
+    }
+
+    return {
+      account_code: codeDigits,
+      full_name: normalized.full_name,
+      job_title: normalized.job_title,
+      job_title_secondary: normalized.job_title_secondary || null,
+      projects: normalized.projects
+    };
+  }
+
   async function handleLogin(code) {
     hideError();
 
@@ -388,31 +417,19 @@
 
     setLoading(true);
     try {
-      const { data, error } = await lookupEmployee(codeDigits);
-      if (error) {
-        if (error.message && error.message.includes('RATE_LIMIT_EXCEEDED')) {
+      let session;
+      try {
+        session = await hydrateSessionByCode(codeDigits);
+      } catch (error) {
+        if (error && error.message && error.message.includes('RATE_LIMIT_EXCEEDED')) {
           showError('محاولات كثيرة جدًا. يرجى الانتظار 15 دقيقة ثم المحاولة مرة أخرى.');
-        } else if (error.message && error.message.includes('EMPLOYEE_NOT_FOUND')) {
+        } else if (error && error.message && error.message.includes('EMPLOYEE_NOT_FOUND')) {
           showError('كود الحساب غير مسجل. تأكد من الكود وحاول مرة أخرى.');
         } else {
           showError('حدث خطأ أثناء التحقق. حاول مرة أخرى.');
         }
         return;
       }
-
-      const normalized = normalizeLookupPayload(data);
-      if (!normalized || !normalized.full_name || !normalized.job_title) {
-        showError('تعذر قراءة بيانات الحساب. يرجى المحاولة مرة أخرى.');
-        return;
-      }
-
-      const session = {
-        account_code: codeDigits,
-        full_name: normalized.full_name,
-        job_title: normalized.job_title,
-        job_title_secondary: normalized.job_title_secondary || null,
-        projects: normalized.projects
-      };
       saveSession(session);
       applySession(session);
       hideOverlay();
@@ -433,7 +450,15 @@
   /* ---- Logout ---- */
 
   function logout() {
+    const accountCode = currentSession?.account_code;
     clearSession();
+    if (
+      accountCode &&
+      typeof window.clearCurrentUserDraft === 'function' &&
+      confirm('هل تريد حذف مسودة هذا الحساب من هذا الجهاز؟')
+    ) {
+      try { window.clearCurrentUserDraft(accountCode); } catch (_) {}
+    }
     clearFields();
 
     // Clear projects data and rebuild empty dropdown
@@ -475,7 +500,7 @@
   /* ---- Public API ---- */
 
   Object.defineProperty(window, 'authSession', {
-    get: function () { return loadSession(); },
+    get: function () { return currentSession; },
     configurable: true
   });
 
@@ -484,7 +509,7 @@
 
   /* ---- Init on DOM ready ---- */
 
-  function initAuth() {
+  async function initAuth() {
     bindLoginForm();
 
     // Clear old session format
@@ -499,12 +524,29 @@
       return;
     }
 
-    var session = loadSession();
-    if (session) {
+    const cached = loadSession();
+    if (!cached) {
+      showOverlay();
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const session = await hydrateSessionByCode(normalizeAccountCode(cached.account_code));
+      saveSession(session);
       applySession(session);
       hideOverlay();
-    } else {
+
+      if (typeof window.loadSessionProjects === 'function') window.loadSessionProjects(session);
+      if (typeof window.buildProjectDropdown === 'function') window.buildProjectDropdown();
+      if (typeof window.refresh === 'function') window.refresh();
+    } catch (_) {
+      clearSession();
+      clearFields();
       showOverlay();
+      showError('انتهت الجلسة أو تعذر التحقق من بيانات الحساب. يرجى تسجيل الدخول مرة أخرى.');
+    } finally {
+      setLoading(false);
     }
   }
 

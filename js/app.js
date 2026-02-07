@@ -1,6 +1,36 @@
 /* Main app (v3) */
 
-const STORAGE_KEY = 'marefah-letter-draft-v4';
+const DRAFT_KEY_PREFIX = 'marefah-letter-draft-v5';
+const LEGACY_DRAFT_KEYS = ['marefah-letter-draft-v4'];
+
+function normalizeDraftAccountCode(accountCode){
+  const normalized = String(accountCode ?? window.authSession?.account_code ?? '')
+    .trim()
+    .replace(/\s+/g, '');
+  return normalized || 'anonymous';
+}
+
+function getDraftStorageKey(accountCode){
+  return `${DRAFT_KEY_PREFIX}:${normalizeDraftAccountCode(accountCode)}`;
+}
+
+function getLegacyDraftStorageKeys(accountCode){
+  const normalized = normalizeDraftAccountCode(accountCode);
+  const legacy = [];
+  LEGACY_DRAFT_KEYS.forEach((base) => {
+    legacy.push(base);
+    legacy.push(`${base}:${normalized}`);
+  });
+  return Array.from(new Set(legacy));
+}
+
+function clearDraftForAccount(accountCode){
+  const keys = new Set([
+    getDraftStorageKey(accountCode),
+    ...getLegacyDraftStorageKeys(accountCode),
+  ]);
+  keys.forEach((key) => localStorage.removeItem(key));
+}
 
 /* -------------------------------------------------------
    Toast Notification System
@@ -576,7 +606,7 @@ async function handleAttachmentFiles(fileList){
   let totalSizeBytes = attachmentFiles.reduce((sum, att) => sum + (att.size || 0), 0);
 
   for (const file of files){
-    const projectedFileCount = attachmentFiles.length + addedCount + 1;
+    const projectedFileCount = attachmentFiles.length + 1;
     if (projectedFileCount > MAX_ATTACHMENT_FILES){
       skippedByLimits++;
       if (!firstLimitError) {
@@ -1072,11 +1102,12 @@ function applyResponsiveScale(){
 
 function saveDraft(){
   const state = collectState();
+  const storageKey = getDraftStorageKey();
 
   // Store without binary/large data to avoid localStorage quota failures.
   const safe = { ...state, signatureDataUrl: null, attachmentFiles: [] };
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
+    localStorage.setItem(storageKey, JSON.stringify(safe));
     showToast('تم حفظ المسودة.', 'success');
   } catch (e) {
     console.warn('Failed to save draft:', e);
@@ -1085,7 +1116,23 @@ function saveDraft(){
 }
 
 function loadDraft(){
-  const raw = localStorage.getItem(STORAGE_KEY);
+  const primaryKey = getDraftStorageKey();
+  let raw = localStorage.getItem(primaryKey);
+  let sourceKey = primaryKey;
+
+  if (!raw){
+    const legacyKeys = getLegacyDraftStorageKeys();
+    for (const key of legacyKeys){
+      if (key === primaryKey) continue;
+      const candidate = localStorage.getItem(key);
+      if (candidate){
+        raw = candidate;
+        sourceKey = key;
+        break;
+      }
+    }
+  }
+
   if (!raw){
     showToast('لا توجد مسودة محفوظة.', 'error');
     return;
@@ -1094,10 +1141,18 @@ function loadDraft(){
   try { state = JSON.parse(raw); } catch(e){
     // Issue 25: Corrupt draft — offer to clear
     if (confirm('المسودة المحفوظة تالفة. هل تريد حذفها؟')) {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(sourceKey);
       showToast('تم حذف المسودة التالفة.', 'success');
     }
     return;
+  }
+
+  // Migrate legacy key to the user-scoped key.
+  if (sourceKey !== primaryKey) {
+    try {
+      localStorage.setItem(primaryKey, raw);
+      localStorage.removeItem(sourceKey);
+    } catch (_) {}
   }
 
   // Check if form has data — confirm before overwriting
@@ -1235,6 +1290,8 @@ function validateBeforeExport(){
   const type = getAllowedLetterType();
   const missing = [];
   const invalidAmountFields = [];
+  const nonPositiveAmountFields = [];
+  const negativeAmountFields = [];
 
   if (!el('date').value) missing.push('التاريخ');
   if (!String(el('jobTitle')?.value || '').trim()) missing.push('المسمى الوظيفي');
@@ -1246,12 +1303,14 @@ function validateBeforeExport(){
     const parsed = parseAmount(raw);
     if (!raw) missing.push('مبلغ العهدة');
     else if (parsed == null) invalidAmountFields.push('مبلغ العهدة');
+    else if (parsed <= 0) nonPositiveAmountFields.push('مبلغ العهدة');
   }
   if (isGeneralFinancialType(type)) {
     const raw = String(el('financialAmount')?.value || '').trim();
     const parsed = parseAmount(raw);
     if (!raw) missing.push('المبلغ المطلوب');
     else if (parsed == null) invalidAmountFields.push('المبلغ المطلوب');
+    else if (parsed <= 0) nonPositiveAmountFields.push('المبلغ المطلوب');
   }
   if (type === 'close_custody') {
     const usedRaw = String(el('usedAmount')?.value || '').trim();
@@ -1261,6 +1320,8 @@ function validateBeforeExport(){
 
     if (usedRaw && usedAmount == null) invalidAmountFields.push('المبلغ المستخدم');
     if (remainingRaw && remainingAmount == null) invalidAmountFields.push('المبلغ المتبقي');
+    if (usedAmount != null && usedAmount < 0) negativeAmountFields.push('المبلغ المستخدم');
+    if (remainingAmount != null && remainingAmount < 0) negativeAmountFields.push('المبلغ المتبقي');
 
     if (!usedRaw && !remainingRaw) {
       missing.push('المبلغ المستخدم أو المتبقي');
@@ -1279,6 +1340,14 @@ function validateBeforeExport(){
     showToast('تنسيق مبلغ غير صحيح: ' + invalidAmountFields.join('، '), 'error');
     return false;
   }
+  if (negativeAmountFields.length) {
+    showToast('يجب أن تكون القيم المالية غير سالبة: ' + negativeAmountFields.join('، '), 'error');
+    return false;
+  }
+  if (nonPositiveAmountFields.length) {
+    showToast('يجب أن يكون المبلغ أكبر من صفر: ' + nonPositiveAmountFields.join('، '), 'error');
+    return false;
+  }
 
   if (missing.length) {
     showToast('حقول مطلوبة: ' + missing.join('، '), 'error');
@@ -1294,6 +1363,7 @@ window.refresh = refresh;
 window.loadSessionProjects = loadSessionProjects;
 window.buildProjectDropdown = buildProjectDropdown;
 window.resetEditorState = resetEditorState;
+window.clearCurrentUserDraft = clearDraftForAccount;
 window.rebindFormListeners = function(ids){
   if (Array.isArray(ids) && ids.length) {
     bindRefreshByIds(ids);

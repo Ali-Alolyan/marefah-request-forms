@@ -36,6 +36,33 @@ class HijriConverter {
       'نوفمبر',
       'ديسمبر'
     ];
+
+    this.ummAlQuraFormatter = null;
+    try {
+      this.ummAlQuraFormatter = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura-nu-latn', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+    } catch (_) {
+      this.ummAlQuraFormatter = null;
+    }
+  }
+
+  toHijriViaIntl(date) {
+    if (!this.ummAlQuraFormatter) return null;
+    try {
+      const parts = this.ummAlQuraFormatter.formatToParts(date);
+      const day = Number(parts.find(p => p.type === 'day')?.value);
+      const month = Number(parts.find(p => p.type === 'month')?.value);
+      const year = Number(parts.find(p => p.type === 'year')?.value);
+      if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) {
+        return null;
+      }
+      return { year, month, day };
+    } catch (_) {
+      return null;
+    }
   }
 
   /**
@@ -46,6 +73,11 @@ class HijriConverter {
   toHijri(date) {
     if (!(date instanceof Date) || isNaN(date)) {
       return null;
+    }
+
+    const intlHijri = this.toHijriViaIntl(date);
+    if (intlHijri) {
+      return intlHijri;
     }
 
     let day = date.getDate();
@@ -88,10 +120,14 @@ class HijriConverter {
    * @returns {Date} Gregorian date
    */
   toGregorian(year, month, day) {
+    const targetYear = Number(year);
+    const targetMonth = Number(month);
+    const targetDay = Number(day);
+
     // Calculate Julian day from Hijri
-    let jd = Math.floor((11 * year + 3) / 30) +
-             354 * year + 30 * month -
-             Math.floor((month - 1) / 2) + day + 1948440 - 385;
+    let jd = Math.floor((11 * targetYear + 3) / 30) +
+             354 * targetYear + 30 * targetMonth -
+             Math.floor((targetMonth - 1) / 2) + targetDay + 1948440 - 385;
 
     if (jd > 2299160) {
       let a = Math.floor((jd - 1867216.25) / 36524.25);
@@ -106,8 +142,25 @@ class HijriConverter {
     day = b - d - Math.floor(30.6001 * e);
     month = e < 14 ? e - 1 : e - 13;
     year = month > 2 ? c - 4716 : c - 4715;
+    const approx = new Date(year, month - 1, day, 12, 0, 0, 0);
 
-    return new Date(year, month - 1, day, 12, 0, 0, 0);
+    // Align with Umm al-Qura when Intl support exists.
+    if (this.ummAlQuraFormatter) {
+      for (let offset = -14; offset <= 14; offset++) {
+        const candidate = new Date(
+          approx.getFullYear(),
+          approx.getMonth(),
+          approx.getDate() + offset,
+          12, 0, 0, 0
+        );
+        const h = this.toHijriViaIntl(candidate);
+        if (h && h.year === targetYear && h.month === targetMonth && h.day === targetDay) {
+          return candidate;
+        }
+      }
+    }
+
+    return approx;
   }
 
   /**
