@@ -61,6 +61,43 @@ let SESSION_PROJECTS = []; // Array of { project_id, project_name, program_name,
 const el = (id) => document.getElementById(id);
 
 let signatureDataUrl = null;
+let projectNameHintDefaultText = null;
+
+const PROJECT_NAME_HINT_FALLBACK_TEXT = 'يُحدد تلقائيًا من المشاريع المسندة إليك';
+const PROJECT_NAME_HINT_DISABLED_TEXT = 'القائمة غير مفعلة لعدم وجود مشاريع مسندة إلى حسابك.';
+const SELECT_FIELD_IDS = ['letterType', 'projectName', 'signatureMode', 'jobTitle'];
+
+function getProjectNameHintDefaultText(){
+  if (projectNameHintDefaultText != null) return projectNameHintDefaultText;
+  const hint = el('projectNameHint');
+  const initial = String(hint?.dataset.defaultHint || hint?.textContent || '').trim();
+  projectNameHintDefaultText = initial || PROJECT_NAME_HINT_FALLBACK_TEXT;
+  if (hint) hint.dataset.defaultHint = projectNameHintDefaultText;
+  return projectNameHintDefaultText;
+}
+
+function syncSelectFieldStateById(controlId){
+  const node = el(controlId);
+  if (!node) return;
+
+  const field = node.closest('.field');
+  const isSelect = node.tagName === 'SELECT';
+  const isDisabledSelect = isSelect && !!node.disabled;
+  if (field) field.classList.toggle('is-disabled', isDisabledSelect);
+
+  if (controlId === 'projectName') {
+    const hint = el('projectNameHint');
+    if (!hint) return;
+    getProjectNameHintDefaultText();
+    hint.textContent = isDisabledSelect
+      ? PROJECT_NAME_HINT_DISABLED_TEXT
+      : getProjectNameHintDefaultText();
+  }
+}
+
+function syncSelectFieldStates(){
+  SELECT_FIELD_IDS.forEach(syncSelectFieldStateById);
+}
 
 // Attachment files storage (File objects, not persisted to localStorage)
 let attachmentFiles = [];
@@ -128,6 +165,7 @@ function init(){
 
   buildProjectDropdown();
   setDefaults();
+  syncSelectFieldStates();
 
   refresh();
 }
@@ -267,6 +305,7 @@ function buildProjectDropdown(){
     sel.disabled = true;
     el('costCenter').value = '';
     el('programNameDisplay').value = '';
+    syncSelectFieldStateById('projectName');
     return;
   }
 
@@ -287,6 +326,7 @@ function buildProjectDropdown(){
     _projectDropdownBound = true;
   }
   updateFromProject();
+  syncSelectFieldStateById('projectName');
 }
 
 function updateFromProject(){
@@ -1095,6 +1135,7 @@ function refresh(){
   // Make sure UI state stays consistent even if an earlier error prevented handlers.
   applyLetterTypeUI();
   applySignatureModeUI();
+  syncSelectFieldStates();
 
   const state = collectState();
 
@@ -1407,6 +1448,7 @@ window.loadSessionProjects = loadSessionProjects;
 window.buildProjectDropdown = buildProjectDropdown;
 window.resetEditorState = resetEditorState;
 window.clearCurrentUserDraft = clearDraftForAccount;
+window.syncSelectFieldStates = syncSelectFieldStates;
 window.rebindFormListeners = function(ids){
   if (Array.isArray(ids) && ids.length) {
     bindRefreshByIds(ids);
