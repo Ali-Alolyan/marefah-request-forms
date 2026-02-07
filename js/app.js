@@ -740,12 +740,16 @@ async function getPdfPageCount(file){
     throw new Error('PDF loader not available');
   }
 
-  const pdfjsLib = await window.loadPdfJs();
   const data = new Uint8Array(await file.arrayBuffer());
-  const init = window.getPdfDocumentInit
-    ? window.getPdfDocumentInit(data)
-    : { data, disableWorker: true };
-  const pdf = await pdfjsLib.getDocument(init).promise;
+  const pdf = window.openPdfDocument
+    ? await window.openPdfDocument(data)
+    : await (async () => {
+      const pdfjsLib = await window.loadPdfJs();
+      const init = window.getPdfDocumentInit
+        ? window.getPdfDocumentInit(data)
+        : { data, disableWorker: true };
+      return pdfjsLib.getDocument(init).promise;
+    })();
   const pageCount = pdf.numPages;
   pdf.destroy();
   return pageCount;
@@ -817,12 +821,16 @@ async function generatePdfThumbnail(file){
     return null;
   }
 
-  const pdfjsLib = await window.loadPdfJs();
   const data = new Uint8Array(await file.arrayBuffer());
-  const init = window.getPdfDocumentInit
-    ? window.getPdfDocumentInit(data)
-    : { data, disableWorker: true };
-  const pdf = await pdfjsLib.getDocument(init).promise;
+  const pdf = window.openPdfDocument
+    ? await window.openPdfDocument(data)
+    : await (async () => {
+      const pdfjsLib = await window.loadPdfJs();
+      const init = window.getPdfDocumentInit
+        ? window.getPdfDocumentInit(data)
+        : { data, disableWorker: true };
+      return pdfjsLib.getDocument(init).promise;
+    })();
 
   if (pdf.numPages < 1){
     pdf.destroy();

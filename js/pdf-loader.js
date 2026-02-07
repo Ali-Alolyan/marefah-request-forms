@@ -25,16 +25,16 @@
       workerUrl: new URL('pdf.worker.min.mjs', LOCAL_BASE).href,
     },
     {
-      kind: 'module',
-      name: 'cdn',
-      moduleUrl: `${CDN_BASE}pdf.min.mjs`,
-      workerUrl: `${CDN_BASE}pdf.worker.min.mjs`,
-    },
-    {
       kind: 'script',
       name: 'cdn-legacy-script',
       scriptUrl: `${CDN_LEGACY_SCRIPT_BASE}pdf.min.js`,
       workerUrl: `${CDN_LEGACY_SCRIPT_BASE}pdf.worker.min.js`,
+    },
+    {
+      kind: 'module',
+      name: 'cdn',
+      moduleUrl: `${CDN_BASE}pdf.min.mjs`,
+      workerUrl: `${CDN_BASE}pdf.worker.min.mjs`,
     }
   ];
 
@@ -83,6 +83,10 @@
       s.onerror = () => reject(new Error(`Failed to load script ${scriptUrl}`));
       document.head.appendChild(s);
     }), LOAD_TIMEOUT_MS, `Loading pdf.js legacy script (${scriptUrl})`);
+  }
+
+  function getCandidateByName(name){
+    return CANDIDATES.find(c => c.name === name) || null;
   }
 
   async function canUseWorker(url){
@@ -157,12 +161,58 @@
     }
   }
 
+  async function forceReloadPdfJs(sourceName){
+    const candidate = getCandidateByName(sourceName);
+    if (!candidate){
+      throw new Error(`Unknown pdf.js source "${sourceName}"`);
+    }
+
+    let loaded;
+    if (candidate.kind === 'script'){
+      loaded = await loadPdfJsScript(candidate.scriptUrl);
+    } else {
+      loaded = await importPdfJs(candidate.moduleUrl);
+    }
+
+    const lib = normalizePdfJsModule(loaded);
+    pdfjsLibRef = await configurePdfJs(lib, candidate);
+    isLoaded = true;
+    loadSource = candidate.name;
+    loadPromise = Promise.resolve(pdfjsLibRef);
+    return pdfjsLibRef;
+  }
+
   function getPdfDocumentInit(data){
     const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
     if (workerEnabled){
       return { data: bytes, isEvalSupported: false };
     }
     return { data: bytes, disableWorker: true, isEvalSupported: false };
+  }
+
+  async function openPdfDocument(data){
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+    const primaryLib = await loadPdfJs();
+    const primaryInit = getPdfDocumentInit(bytes);
+
+    try {
+      return await primaryLib.getDocument(primaryInit).promise;
+    } catch (primaryError){
+      const currentSource = loadSource || '';
+      // Parse-time fallback: some PDFs fail on modern build but work on legacy build.
+      if (currentSource !== 'cdn-legacy-script'){
+        try {
+          const legacyLib = await forceReloadPdfJs('cdn-legacy-script');
+          const legacyInit = getPdfDocumentInit(bytes);
+          return await legacyLib.getDocument(legacyInit).promise;
+        } catch (legacyError){
+          const err = legacyError instanceof Error ? legacyError : new Error(String(legacyError || 'Failed to parse PDF'));
+          err.cause = primaryError;
+          throw err;
+        }
+      }
+      throw primaryError;
+    }
   }
 
   function isPdfJsLoaded(){
@@ -178,6 +228,8 @@
   }
 
   window.loadPdfJs = loadPdfJs;
+  window.forceReloadPdfJs = forceReloadPdfJs;
+  window.openPdfDocument = openPdfDocument;
   window.isPdfJsLoaded = isPdfJsLoaded;
   window.getPdfDocumentInit = getPdfDocumentInit;
   window.getPdfJsStatus = getPdfJsStatus;

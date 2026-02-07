@@ -147,12 +147,16 @@
       throw new Error('PDF loader not available');
     }
 
-    const pdfjsLib = await window.loadPdfJs();
     const data = new Uint8Array(await file.arrayBuffer());
-    const init = window.getPdfDocumentInit
-      ? window.getPdfDocumentInit(data)
-      : { data, disableWorker: true };
-    const pdf = await pdfjsLib.getDocument(init).promise;
+    const pdf = window.openPdfDocument
+      ? await window.openPdfDocument(data)
+      : await (async () => {
+        const pdfjsLib = await window.loadPdfJs();
+        const init = window.getPdfDocumentInit
+          ? window.getPdfDocumentInit(data)
+          : { data, disableWorker: true };
+        return pdfjsLib.getDocument(init).promise;
+      })();
     const maxAttachmentPages = 80; // Safety limit
     if (pdf.numPages > maxAttachmentPages){
       console.warn(`[PDF] attachment "${file.name}" has ${pdf.numPages} pages, capping at ${maxAttachmentPages}`);
