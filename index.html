@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="theme-color" content="#1e5aa8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://rlftalctuaybztrgegnb.supabase.co https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; object-src 'none'; worker-src 'self' blob:" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://rlftalctuaybztrgegnb.supabase.co https://cdn.jsdelivr.net; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; object-src 'none'; worker-src 'self' blob:" />
   <meta name="description" content="مولّد خطابات رسمية لجمعية معرفة — إنشاء خطابات A4 بالتاريخ الهجري والميلادي والتوقيع الرقمي وتصدير PDF" />
   <title>مولّد الخطابات - جمعية معرفة</title>
 
@@ -23,6 +23,7 @@
 </head>
 
 <body data-mobile-view="form">
+  <noscript><p>يتطلب هذا التطبيق تفعيل جافاسكربت في المتصفح.</p></noscript>
   <!-- Login overlay -->
   <div id="loginOverlay" class="login-overlay is-active" role="dialog" aria-modal="true" aria-label="تسجيل الدخول">
     <div class="login-card">
@@ -33,7 +34,7 @@
           <span class="field__label">كود الحساب</span>
           <input id="loginCode" class="field__control" type="text" inputmode="numeric" maxlength="9" dir="ltr" placeholder="000000000" autocomplete="off" />
         </label>
-        <div id="loginError" class="login-error" style="display:none"></div>
+        <div id="loginError" class="login-error"></div>
         <button id="loginSubmit" class="btn btn--primary login-btn" type="submit">تسجيل الدخول</button>
       </form>
     </div>
@@ -84,8 +85,8 @@
         <label class="field">
           <span class="field__label">التاريخ <span class="required-mark">*</span></span>
           <input id="date" type="hidden" />
-          <input id="dateDisplay" class="field__control md3-text-field__input--date" placeholder=" " readonly />
-          <span class="field__hint">اختر تاريخًا واحدًا وسيظهر هجري/ميلادي تلقائيًا</span>
+          <input id="dateDisplay" class="field__control md3-text-field__input--date" placeholder=" " readonly aria-describedby="dateHint" />
+          <span class="field__hint" id="dateHint">اختر تاريخًا واحدًا وسيظهر هجري/ميلادي تلقائيًا</span>
         </label>
       </div>
 
@@ -95,14 +96,14 @@
         <label class="agreement-check financial-cost-toggle section-animated is-hidden" id="financialCostCenterToggleWrap">
           <input type="checkbox" id="financialIncludeCostCenter" />
           <span>إرفاق مركز التكلفة في الخطاب (اختياري)</span>
-          <span class="field__hint">يمكنك تركه غير مفعّل لإرسال الطلب بدون مركز تكلفة.</span>
+          <span class="field__hint" id="financialCostCenterHint">يمكنك تركه غير مفعّل لإرسال الطلب بدون مركز تكلفة.</span>
         </label>
 
         <div id="projectCostFieldsWrap" class="section-animated">
           <label class="field">
             <span class="field__label">اسم المشروع</span>
-            <select id="projectName" class="field__control"></select>
-            <span class="field__hint">يُحدد تلقائيًا من المشاريع المسندة إليك</span>
+            <select id="projectName" class="field__control" aria-describedby="projectNameHint"></select>
+            <span class="field__hint" id="projectNameHint">يُحدد تلقائيًا من المشاريع المسندة إليك</span>
           </label>
 
           <div class="grid2">
@@ -118,13 +119,13 @@
           </div>
         </div>
 
-        <div id="no-projects-hint" class="field__hint" style="display:none;color:var(--md-sys-color-error,#b3261e)">
+        <div id="no-projects-hint" class="field__hint">
           لا توجد مشاريع مسندة إليك. يمكنك إنشاء خطاب مخصص أو طلب مالي عام بدون مركز تكلفة.
         </div>
       </div>
 
       <div class="section">
-        <div class="section__title section__title--flex">بيانات مقدم الطلب <button id="btn-logout" class="btn btn--ghost btn--logout" type="button" style="display:none">تسجيل خروج</button></div>
+        <div class="section__title section__title--flex">بيانات مقدم الطلب <button id="btn-logout" class="btn btn--ghost btn--logout" type="button">تسجيل خروج</button></div>
 
         <div class="grid2">
           <label class="field">
@@ -156,8 +157,8 @@
         <div id="extra-custody" class="extra">
           <label class="field">
             <span class="field__label">مبلغ العهدة المطلوب (ريال)</span>
-            <input id="custodyAmount" class="field__control" inputmode="decimal" placeholder="5000" />
-            <span class="field__hint">أدخل مبلغ العهدة بالريال السعودي</span>
+            <input id="custodyAmount" class="field__control" inputmode="decimal" placeholder="5000" min="0" aria-describedby="custodyAmountHint" />
+            <span class="field__hint" id="custodyAmountHint">أدخل مبلغ العهدة بالريال السعودي</span>
           </label>
         </div>
 
@@ -165,8 +166,8 @@
         <div id="extra-financial" class="extra">
           <label class="field">
             <span class="field__label">المبلغ المطلوب (ريال) <span class="required-mark">*</span></span>
-            <input id="financialAmount" class="field__control" inputmode="decimal" placeholder="5000" />
-            <span class="field__hint">حقل إلزامي. أدخل المبلغ المطلوب بالريال السعودي (مثال: 12500).</span>
+            <input id="financialAmount" class="field__control" inputmode="decimal" placeholder="5000" min="0" aria-describedby="financialAmountHint" />
+            <span class="field__hint" id="financialAmountHint">حقل إلزامي. أدخل المبلغ المطلوب بالريال السعودي (مثال: 12500).</span>
           </label>
         </div>
 
@@ -175,19 +176,19 @@
           <div class="grid2">
             <label class="field">
               <span class="field__label">المبلغ المستخدم (ريال)</span>
-              <input id="usedAmount" class="field__control" inputmode="decimal" placeholder="0" />
+              <input id="usedAmount" class="field__control" inputmode="decimal" placeholder="0" min="0" />
             </label>
 
             <label class="field">
               <span class="field__label">المبلغ المتبقي (ريال)</span>
-              <input id="remainingAmount" class="field__control" inputmode="decimal" placeholder="0" />
+              <input id="remainingAmount" class="field__control" inputmode="decimal" placeholder="0" min="0" />
             </label>
           </div>
 
           <label class="field">
             <span class="field__label">عدد المشفوعات</span>
-            <input id="attachments" class="field__control" type="number" step="1" min="0" inputmode="numeric" placeholder="0" readonly />
-            <span class="field__hint">يُحدث تلقائيًا بناءً على الملفات المرفقة</span>
+            <input id="attachments" class="field__control" type="number" step="1" min="0" inputmode="numeric" placeholder="0" readonly aria-describedby="attachmentsHint" />
+            <span class="field__hint" id="attachmentsHint">يُحدث تلقائيًا بناءً على الملفات المرفقة</span>
           </label>
 
           <div class="attachment-upload" id="attachment-upload-close">
@@ -216,8 +217,8 @@
         <div id="extra-general" class="extra">
           <label class="field">
             <span class="field__label">عدد المشفوعات (اختياري)</span>
-            <input id="attachmentsGeneral" class="field__control" type="number" step="1" min="0" inputmode="numeric" placeholder="0" readonly />
-            <span class="field__hint">يُحدث تلقائيًا بناءً على الملفات المرفقة</span>
+            <input id="attachmentsGeneral" class="field__control" type="number" step="1" min="0" inputmode="numeric" placeholder="0" readonly aria-describedby="attachmentsGeneralHint" />
+            <span class="field__hint" id="attachmentsGeneralHint">يُحدث تلقائيًا بناءً على الملفات المرفقة</span>
           </label>
 
           <div class="attachment-upload" id="attachment-upload-general">
@@ -320,7 +321,7 @@
           للتأكد من عدم ظهور أجزاء من الواجهة في PDF: استخدم زر <b>تصدير PDF</b> داخل الموقع.
           كما يدعم الموقع Ctrl/⌘ + P بدون ظهور الواجهة (بفضل إعدادات الطباعة).
         </div>
-        <div class="muted" style="margin-top:6px;">
+        <div class="muted">
           <b>حفظ المسودة</b>: يحفظ بيانات النموذج في المتصفح حتى لو أغلقت الصفحة (بدون التوقيع).
           <b>استرجاع المسودة</b>: يعيد تعبئة النموذج من آخر حفظ. يرجى إعادة التوقيع بعد الاسترجاع.
         </div>
@@ -392,7 +393,7 @@
 
 
   <!-- Export progress overlay -->
-  <div id="exportSpinner" class="export-spinner" style="display:none" role="status" aria-live="polite" aria-label="جاري تجهيز ملف PDF">
+  <div id="exportSpinner" class="export-spinner" role="status" aria-live="polite" aria-label="جاري تجهيز ملف PDF">
     <div class="export-spinner__card">
       <div class="spinner" aria-hidden="true"></div>
       <div>جاري تجهيز ملف PDF…</div>

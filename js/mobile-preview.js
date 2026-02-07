@@ -86,6 +86,7 @@ Mobile Preview Viewer
       this._pendingState = null;
       this._debounce = null;
       this._renderToken = 0;
+      this._dirty = false;
 
       // pointer gestures
       this._pointers = new Map();
@@ -125,6 +126,14 @@ Mobile Preview Viewer
 
       // When image loads, fit it
       this.img.addEventListener('load', ()=>this.fit());
+
+      // When switching to preview tab, flush pending render
+      const self = this;
+      new MutationObserver(()=>{
+        if (isMobile() && isPreviewView() && self._dirty){
+          self._scheduleDebouncedRender();
+        }
+      }).observe(document.body, { attributes: true, attributeFilter: ['data-mobile-view'] });
     }
 
     destroyPageUrls(){
@@ -143,16 +152,21 @@ Mobile Preview Viewer
       this.loading.style.display = show ? 'grid' : 'none';
     }
 
+    _scheduleDebouncedRender(){
+      if (this._debounce) clearTimeout(this._debounce);
+      this._debounce = setTimeout(()=>this.renderNow(), 180);
+    }
+
     schedule(state){
       if (!this.isReady()) return;
       this._pendingState = state;
       this._renderToken++;
+      this._dirty = true;
 
       // Only render when mobile + preview tab is active (saves battery)
       if (!isMobile() || !isPreviewView()) return;
 
-      if (this._debounce) clearTimeout(this._debounce);
-      this._debounce = setTimeout(()=>this.renderNow(), 180);
+      this._scheduleDebouncedRender();
     }
 
     async renderNow(){
@@ -161,6 +175,7 @@ Mobile Preview Viewer
 
       const state = this._pendingState;
       if (!state || !window.renderLetterToCanvases) return;
+      this._dirty = false;
       const renderToken = ++this._renderToken;
 
       this.setLoading(true);

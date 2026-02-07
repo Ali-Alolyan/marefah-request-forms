@@ -248,7 +248,7 @@ body{
     left: 12px;
     right: 12px;
     bottom: calc(12px + env(safe-area-inset-bottom));
-    z-index: 999;
+    z-index: 100;
 
     border: 1px solid var(--md-sys-color-outline-variant);
     background: rgba(255,255,255,0.92);
@@ -298,6 +298,16 @@ body{
     font-size: 12px;
     padding: 8px 10px;
   }
+}
+
+/* Tablet portrait (641-768px): tighter spacing, scale page down */
+@media (min-width: 641px) and (max-width: 768px){
+  .layout{ padding: 12px 10px; gap: 12px; }
+  .panel{ border-radius: 14px; }
+  .form{ padding: 10px; }
+  .section{ padding: 12px 10px; }
+  .topbar{ padding: 10px 12px; }
+  .topbar__actions .btn{ padding: 8px 10px; font-size: 12px; }
 }
 
 
@@ -694,18 +704,37 @@ body{
 
 /* Print: ONLY printRoot pages */
 @media print{
-  /* Hide everything by default */
-  body *{
-    visibility: hidden !important;
+  /* Hide non-print UI by targeting specific containers */
+  .topbar,
+  .panel.form,
+  .bottomTabs,
+  .mobileTabs,
+  .toast-container,
+  .export-spinner,
+  .login-overlay,
+  .preview__header,
+  .preview__footer,
+  .mobilePreview,
+  .zoom-bar,
+  .signature-toolbar,
+  .signature-helper-text{
+    display: none !important;
   }
-  /* Show only printRoot and children */
-  #printRoot, #printRoot *{
-    visibility: visible !important;
+  .layout{
+    display: block !important;
+    padding: 0 !important;
+  }
+  .panel.preview{
+    border: none !important;
+    box-shadow: none !important;
+    background: none !important;
+    overflow: visible !important;
   }
   #printRoot{
-    position: absolute;
-    inset: 0;
+    position: static;
     padding: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
   .a4-page{
     transform: none !important;
@@ -716,7 +745,6 @@ body{
   }
   @page { size: A4; margin: 0; }
   html, body { margin: 0; padding: 0; }
-  .signature-toolbar, .signature-helper-text{ display:none !important; }
   /* Ensure colors/graphics print */
   *{
     -webkit-print-color-adjust: exact !important;
@@ -808,7 +836,7 @@ body{
 .export-spinner{
   position: fixed;
   inset: 0;
-  z-index: 10001;
+  z-index: 9900;
   display: none;
   place-items: center;
   background: color-mix(in srgb, var(--md-sys-color-surface) 62%, transparent);
@@ -854,7 +882,7 @@ body{
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 10000;
+  z-index: 9500;
   display: flex;
   flex-direction: column-reverse;
   align-items: center;
@@ -1172,7 +1200,7 @@ html.theme-transitioning *::after{
   display: none;
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 9000;
   place-items: center;
   background: rgba(15, 23, 42, 0.55);
   background: color-mix(in srgb, var(--md-sys-color-surface) 55%, transparent);
@@ -1517,3 +1545,12 @@ body.login-active .bottomTabs{
 @keyframes attachment-spin{
   to{ transform: rotate(360deg); }
 }
+
+/* -------------------------------------------------------
+   Initially Hidden Elements (replaces inline style="display:none")
+-------------------------------------------------------- */
+.login-error{ display: none; }
+#no-projects-hint{ display: none; color: var(--md-sys-color-error, #b3261e); }
+.btn--logout{ display: none; }
+.small-note .muted + .muted{ margin-top: 6px; }
+noscript p{ text-align: center; padding: 2rem; font-size: 1.2rem; }

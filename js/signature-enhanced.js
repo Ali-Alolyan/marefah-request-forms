@@ -16,10 +16,10 @@ class SignatureManager {
     this.lastX = 0;
     this.lastY = 0;
 
-    // History for undo/redo (max 50 states to prevent memory issues)
+    // History for undo/redo (max 30 states to prevent memory issues)
     this.history = [];
     this.historyStep = -1;
-    this.maxHistory = 50;
+    this.maxHistory = 30;
     this.blankDataUrl = null;
     this.hasInk = false;
 
@@ -62,22 +62,27 @@ class SignatureManager {
     // Restore drawing settings
     this.updateDrawingStyle();
 
+    // Always capture blank state immediately after resize/clear
+    this.clearCanvasSurface();
+    this.captureBlankState();
+
     // Restore content if it existed
     if (hadDrawing && imageData) {
       const img = new Image();
       img.onload = () => {
-        this.clearCanvasSurface();
-        this.captureBlankState();
-        this.ctx.drawImage(img, 0, 0, rect.width, rect.height);
+        const currentRect = this.canvas.getBoundingClientRect();
+        this.ctx.drawImage(img, 0, 0, currentRect.width, currentRect.height);
         this.saveState({ replaceCurrent: true });
         this.emitSignatureChanged();
+      };
+      img.onerror = () => {
+        // Image load failed — keep blank canvas
+        this.resetHistoryToBlank();
       };
       img.src = imageData;
       return;
     }
 
-    this.clearCanvasSurface();
-    this.captureBlankState();
     this.resetHistoryToBlank();
   }
 
@@ -355,8 +360,15 @@ class SignatureManager {
     this.canvas.addEventListener('touchend', () => this.stopDrawing());
     this.canvas.addEventListener('touchcancel', () => this.stopDrawing());
 
-    // Resize handling
-    window.addEventListener('resize', () => this.resizeCanvas());
+    // Resize handling (debounced to avoid rapid-fire redraws)
+    if (!this._resizeHandler) {
+      let resizeTimer;
+      this._resizeHandler = () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => this.resizeCanvas(), 150);
+      };
+      window.addEventListener('resize', this._resizeHandler);
+    }
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {

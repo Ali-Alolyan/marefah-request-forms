@@ -6,7 +6,7 @@
 /* Main container */
 .dual-calendar-picker {
   position: fixed !important;
-  z-index: 9999 !important;
+  z-index: 501 !important;
   background: var(--md-sys-color-surface-container);
   border-radius: var(--md-sys-shape-corner-large);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24), 0 4px 16px rgba(0, 0, 0, 0.16);
@@ -27,7 +27,7 @@ html.dcp-open, html.dcp-open body {
 .dcp-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 9998;
+  z-index: 500;
   background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);

@@ -205,8 +205,20 @@
     };
   }
 
+  function computeSessionHash(obj) {
+    // Lightweight integrity check: FNV-1a over key fields to detect tampering.
+    var str = String(obj.account_code || '') + '|' + String(obj.full_name || '') + '|' + String(obj.job_title || '') + '|' + String(obj._savedAt || '');
+    var h = 0x811c9dc5;
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return (h >>> 0).toString(36);
+  }
+
   function saveSession(data) {
     const payload = { ...data, _savedAt: Date.now() };
+    payload._hash = computeSessionHash(payload);
     localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
     currentSession = payload;
   }
@@ -223,6 +235,12 @@
       }
       // Expire session after 24 hours
       if ((Date.now() - s._savedAt) > SESSION_MAX_AGE_MS) {
+        clearSession();
+        return null;
+      }
+      // Integrity check
+      if (s._hash && s._hash !== computeSessionHash(s)) {
+        console.warn('[auth] Session integrity check failed — possible tampering.');
         clearSession();
         return null;
       }
@@ -341,7 +359,7 @@
     }
 
     const logoutBtn = getLogoutBtn();
-    if (logoutBtn) logoutBtn.style.display = '';
+    if (logoutBtn) logoutBtn.style.display = 'inline-block';
   }
 
   function clearFields() {
@@ -540,11 +558,24 @@
       if (typeof window.loadSessionProjects === 'function') window.loadSessionProjects(session);
       if (typeof window.buildProjectDropdown === 'function') window.buildProjectDropdown();
       if (typeof window.refresh === 'function') window.refresh();
-    } catch (_) {
-      clearSession();
-      clearFields();
-      showOverlay();
-      showError('انتهت الجلسة أو تعذر التحقق من بيانات الحساب. يرجى تسجيل الدخول مرة أخرى.');
+    } catch (err) {
+      const msg = (err && err.message) || '';
+      const isNetworkError = msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('network');
+      if (isNetworkError) {
+        // Network unreachable — keep cached session, warn user
+        applySession(cached);
+        hideOverlay();
+        if (typeof window.loadSessionProjects === 'function') window.loadSessionProjects(cached);
+        if (typeof window.buildProjectDropdown === 'function') window.buildProjectDropdown();
+        if (typeof window.refresh === 'function') window.refresh();
+        console.warn('[auth] Network error during session revalidation; using cached session.', err);
+      } else {
+        // Actual auth failure — clear session
+        clearSession();
+        clearFields();
+        showOverlay();
+        showError('انتهت الجلسة أو تعذر التحقق من بيانات الحساب. يرجى تسجيل الدخول مرة أخرى.');
+      }
     } finally {
       setLoading(false);
     }

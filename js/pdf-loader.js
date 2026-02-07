@@ -112,15 +112,13 @@
         }
       }
 
-      loadPromise = null;
       throw lastError || new Error('Failed to load pdf.js');
     })();
 
     try {
       return await loadPromise;
-    } catch (error) {
-      loadPromise = null;
-      throw error;
+    } finally {
+      if (!isLoaded) loadPromise = null;
     }
   }
 

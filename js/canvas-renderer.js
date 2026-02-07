@@ -563,6 +563,11 @@
       canvases.push(c);
     }
 
+    // Release measurement canvas and signature cache
+    measure.width = 1;
+    measure.height = 1;
+    sigImgCache.clear();
+
     return canvases;
   }
 

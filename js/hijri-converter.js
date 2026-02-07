@@ -47,6 +47,14 @@ class HijriConverter {
     } catch (_) {
       this.ummAlQuraFormatter = null;
     }
+
+    // Cached number formatters for date string formatting
+    this._arFmt2 = null;
+    this._arFmt4 = null;
+    try {
+      this._arFmt2 = new Intl.NumberFormat('ar-SA', { minimumIntegerDigits: 2, useGrouping: false });
+      this._arFmt4 = new Intl.NumberFormat('ar-SA', { minimumIntegerDigits: 4, useGrouping: false });
+    } catch (_) {}
   }
 
   toHijriViaIntl(date) {
@@ -188,10 +196,8 @@ class HijriConverter {
     const month = hijriDate.month;
     const year = hijriDate.year;
 
-    if (useArabicDigits) {
-      const fmt2 = new Intl.NumberFormat('ar-SA', { minimumIntegerDigits: 2, useGrouping: false });
-      const fmt4 = new Intl.NumberFormat('ar-SA', { minimumIntegerDigits: 4, useGrouping: false });
-      return `${fmt2.format(day)}${separator}${fmt2.format(month)}${separator}${fmt4.format(year)} هـ`;
+    if (useArabicDigits && this._arFmt2 && this._arFmt4) {
+      return `${this._arFmt2.format(day)}${separator}${this._arFmt2.format(month)}${separator}${this._arFmt4.format(year)} هـ`;
     }
 
     const d = String(day).padStart(2, '0');
@@ -225,10 +231,8 @@ class HijriConverter {
     const month = date.getMonth() + 1;
     const year = date.getFullYear();
 
-    if (useArabicDigits) {
-      const fmt2 = new Intl.NumberFormat('ar-SA', { minimumIntegerDigits: 2, useGrouping: false });
-      const fmt4 = new Intl.NumberFormat('ar-SA', { minimumIntegerDigits: 4, useGrouping: false });
-      return `${fmt2.format(day)}${separator}${fmt2.format(month)}${separator}${fmt4.format(year)} م`;
+    if (useArabicDigits && this._arFmt2 && this._arFmt4) {
+      return `${this._arFmt2.format(day)}${separator}${this._arFmt2.format(month)}${separator}${this._arFmt4.format(year)} م`;
     }
 
     const d = String(day).padStart(2, '0');

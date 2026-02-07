@@ -60,7 +60,7 @@
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 30_000);
+    setTimeout(()=>URL.revokeObjectURL(url), 10_000);
   }
 
   function releaseCanvas(canvas){
@@ -153,9 +153,14 @@
       ? window.getPdfDocumentInit(arrayBuffer)
       : { data: arrayBuffer, disableWorker: true };
     const pdf = await pdfjsLib.getDocument(init).promise;
+    const maxAttachmentPages = 80; // Safety limit
+    if (pdf.numPages > maxAttachmentPages){
+      console.warn(`[PDF] attachment "${file.name}" has ${pdf.numPages} pages, capping at ${maxAttachmentPages}`);
+    }
+    const pageLimit = Math.min(pdf.numPages, maxAttachmentPages);
     let renderedCount = 0;
 
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++){
+    for (let pageNum = 1; pageNum <= pageLimit; pageNum++){
       const page = await pdf.getPage(pageNum);
 
       // Calculate scale to fit A4 with padding

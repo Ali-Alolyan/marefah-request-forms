@@ -11,19 +11,27 @@
 
 const PAGE = { maxPages: 20 };
 
+let _measureRoot = null;
+function getMeasureRoot(){
+  if (!_measureRoot || !document.body.contains(_measureRoot)){
+    _measureRoot = document.createElement('div');
+    _measureRoot.style.position = 'fixed';
+    _measureRoot.style.left = '-99999px';
+    _measureRoot.style.top = '0';
+    _measureRoot.style.width = '210mm';
+    _measureRoot.style.height = '297mm';
+    _measureRoot.style.pointerEvents = 'none';
+    document.body.appendChild(_measureRoot);
+  }
+  return _measureRoot;
+}
+
 function buildPages(state, blocks){
   const pages = [];
   let truncated = false;
 
-  // Measurement root (offscreen)
-  const root = document.createElement('div');
-  root.style.position = 'fixed';
-  root.style.left = '-99999px';
-  root.style.top = '0';
-  root.style.width = '210mm';
-  root.style.height = '297mm';
-  root.style.pointerEvents = 'none';
-  document.body.appendChild(root);
+  const root = getMeasureRoot();
+  root.innerHTML = '';
 
   let pageIndex = 0;
   let pageShell = createPageShell(state, 1, 1); // total updated later
@@ -103,7 +111,7 @@ function buildPages(state, blocks){
 
   // finalize
   commitPage();
-  document.body.removeChild(root);
+  root.innerHTML = '';
 
   // Set total pages and page numbers
   const total = pageIndex + 1;

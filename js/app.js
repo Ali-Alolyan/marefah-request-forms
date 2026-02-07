@@ -462,8 +462,10 @@ function bindMobileTabs(){
   // Default
   setView(document.body.getAttribute('data-mobile-view') || 'form');
 
+  let resizeTimer;
   window.addEventListener('resize', () => {
-    applyResponsiveScale();
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(applyResponsiveScale, 100);
   });
 }
 
@@ -593,8 +595,17 @@ function initAttachmentsUI(){
   });
 }
 
+let _attachmentProcessing = false;
 async function handleAttachmentFiles(fileList){
   if (!fileList || !fileList.length) return;
+  if (_attachmentProcessing){
+    showToast('يتم معالجة مرفقات أخرى، يرجى الانتظار.', 'error');
+    return;
+  }
+  _attachmentProcessing = true;
+  try { await _handleAttachmentFilesInner(fileList); } finally { _attachmentProcessing = false; }
+}
+async function _handleAttachmentFilesInner(fileList){
 
   const files = Array.from(fileList);
   let addedCount = 0;
@@ -1262,7 +1273,7 @@ function applyLetterTypeUI(){
   }
 
   if (noProjectsHint) {
-    noProjectsHint.style.display = (!hasProjects && showCostSection) ? '' : 'none';
+    noProjectsHint.style.display = (!hasProjects && showCostSection) ? 'block' : 'none';
   }
 
   // Re-render attachment previews to the correct container when type changes

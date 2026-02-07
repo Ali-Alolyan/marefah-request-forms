@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Arabic letter generator for Marefah Association (جمعية معرفة). Static web app (vanilla HTML/CSS/JS, no framework, no build step) that produces formal A4 letters with Hijri/Gregorian dates, digital signatures, and PDF export. Supports three letter types: general (`general`), custody request (`custody`), and close-custody request (`close_custody`).
+Arabic letter generator for Marefah Association (جمعية معرفة). Static web app (vanilla HTML/CSS/JS, no framework, no build step) that produces formal A4 letters with Hijri/Gregorian dates, digital signatures, and PDF export. Supports four letter types: general (`general`), general financial (`general_financial`), custody request (`custody`), and close-custody request (`close_custody`).
 
 ## Development
 
@@ -14,7 +14,7 @@ python3 -m http.server 8080
 # Open http://localhost:8080/
 ```
 
-No build tools, no npm, no TypeScript. Edit files directly and reload the browser. No tests or linting configured. Deployed via GitHub Pages (push to `main` triggers `.github/workflows/static.yml`).
+No build tools, no npm, no TypeScript. Edit files directly and reload the browser. No tests or linting configured. Deployed via GitHub Pages (push to `main` triggers `.github/workflows/static.yml`). The workflow copies `index.html`, `css/`, `js/`, `assets/`, `favicon.ico`, and `apple-touch-icon.png` into `_site/` for deployment — new top-level files/directories must be added to the workflow's prepare step.
 
 ## Architecture
 
@@ -23,7 +23,7 @@ No build tools, no npm, no TypeScript. Edit files directly and reload the browse
 **Script load order matters** (no ES modules; scripts attach to `window`):
 1. Supabase CDN (`@supabase/supabase-js@2`) → `auth.js` (self-initializes on DOMContentLoaded)
 2. `hijri-converter.js` → `utils.js` → `date-picker.js` → `signature-enhanced.js` → `theme.js`
-3. `templates.js` → `pagination.js` → `canvas-renderer.js` → `print.js` → `mobile-preview.js`
+3. `templates.js` → `pagination.js` → `canvas-renderer.js` → `pdf-loader.js` → `print.js` → `mobile-preview.js`
 4. `app.js` (initializes everything on `DOMContentLoaded`)
 
 **Core data flow:**
@@ -43,6 +43,7 @@ No build tools, no npm, no TypeScript. Edit files directly and reload the browse
 - `hijri-converter.js` — Gregorian ↔ Hijri date conversion (Julian day algorithm)
 - `date-picker.js` — dual calendar picker (Gregorian + Hijri sync)
 - `signature-enhanced.js` — canvas drawing with undo/redo stack
+- `pdf-loader.js` — deterministic pdf.js loader (local-first, CDN fallback) for rendering PDF attachments; exposes `window.loadPdfJs()` and `window.getPdfDocumentInit()`
 - `print.js` — PDF export with iOS memory-aware DPI fallback (300→240)
 - `utils.js` — shared date helpers (`toLocalISODate`, `parseISOToLocalDate`), number formatting, HTML escaping
 - `theme.js` — light/dark mode with Material Design 3 color tokens
@@ -55,23 +56,28 @@ No build tools, no npm, no TypeScript. Edit files directly and reload the browse
 The central data structure passed through the rendering pipeline:
 
 ```
-type:            'general' | 'custody' | 'close_custody'
-subject:         String           // Letter subject line
-details:         String           // Letter body text
-applicantName:   String           // Read-only when authenticated
-jobTitle:        String           // Read-only when authenticated
-custodyAmount:   Number | null    // custody type only
-usedAmount:      Number | null    // close_custody type only
-remainingAmount: Number | null    // close_custody type only
-attachments:     Number           // Attachment count
-agreedToTerms:   Boolean          // Checkbox for custody types
-signatureDataUrl: String | null   // Canvas signature data URL
-costCenter:      String           // Format: "TAS-MFA" (not used for general)
-programNameAr:   String           // Arabic program name
-pfName:          String           // Portfolio name in Arabic
-dateISO:         String           // YYYY-MM-DD
-dateHijri:       String           // Formatted Hijri date string
-dateGregorian:   String           // Formatted Gregorian date string
+type:                    'general' | 'general_financial' | 'custody' | 'close_custody'
+subject:                 String           // Letter subject line (auto-filled for financial types)
+details:                 String           // Letter body text
+applicantName:           String           // Read-only when authenticated
+jobTitle:                String           // Read-only when authenticated
+custodyAmount:           Number | null    // custody type only
+financialAmount:         Number | null    // general_financial type only
+usedAmount:              Number | null    // close_custody type only
+remainingAmount:         Number | null    // close_custody type only
+attachments:             Number           // Attachment count
+attachmentsText:         String           // Arabic-formatted attachment count
+attachmentFiles:         Array            // Uploaded file attachment data
+financialIncludeCostCenter: Boolean       // general_financial: whether cost center is shown
+agreedToTerms:           Boolean          // Checkbox for custody types
+signatureDataUrl:        String | null    // Canvas signature data URL
+projectName:             String           // Project name
+costCenter:              String           // Format: "TAS-MFA" (not used for general)
+programNameAr:           String           // Arabic program name
+pfName:                  String           // Portfolio name in Arabic
+dateISO:                 String           // YYYY-MM-DD
+dateHijri:               String           // Formatted Hijri date string
+dateGregorian:           String           // Formatted Gregorian date string
 ```
 
 ## Cost Center Data
@@ -86,16 +92,17 @@ Hardcoded in `app.js` as `PF_OPTIONS` (3 portfolios) and `PRG_OPTIONS` (16 progr
 
 | Key | Purpose | Lifetime |
 |-----|---------|----------|
-| `marefah-letter-draft-v4` | Form data draft (excludes signature) | Indefinite |
-| `marefah-auth-session-v1` | Authenticated user session | 24 hours |
+| `marefah-letter-draft-v5:<account>` | Form data draft per user (excludes signature) | Indefinite |
+| `marefah-auth-session-v2` | Authenticated user session | 24 hours |
 
 ## Content Security Policy
 
 Defined in `index.html` `<meta>` tag. Key constraints:
 - `script-src 'self' https://cdn.jsdelivr.net` — only local scripts + Supabase CDN
-- `connect-src 'self' https://rlftalctuaybztrgegnb.supabase.co` — only Supabase API calls
+- `connect-src 'self' https://rlftalctuaybztrgegnb.supabase.co https://cdn.jsdelivr.net` — Supabase API + pdf.js CDN fallback
 - `font-src 'self'` — fonts must be bundled locally
 - `img-src 'self' data: blob:` — allows canvas-generated data URLs
+- `worker-src 'self' blob:` — for pdf.js web worker
 - `object-src 'none'`
 
 ## Key Technical Considerations
@@ -104,7 +111,7 @@ Defined in `index.html` `<meta>` tag. Key constraints:
 - **RTL text in canvas:** `canvas-renderer.js` has custom Arabic text wrapping logic — standard canvas `fillText` doesn't handle RTL correctly. LTR snippets (cost center codes, numbers) use Unicode bidi isolation markers (`\u202A`/`\u202C` LRE/PDF).
 - **iOS memory limits:** PDF export attempts 300 DPI first, falls back to 240 DPI on OOM. Mobile preview uses 150 DPI JPEG. iOS detection checks both UA string and `maxTouchPoints > 1` for iPadOS.
 - **Fonts must load first:** Letter rendering depends on IBM Plex Sans Arabic (bundled in `assets/fonts/`). Fonts are preloaded in `index.html`. PDF export waits for `document.fonts.ready` before rendering.
-- **Vendor directory:** `js/vendor/` contains only a README placeholder — PDF generation uses the custom canvas renderer, not external libraries.
+- **Vendor directories:** `js/vendor/` is a placeholder. `assets/vendor/pdfjs/` holds optional local pdf.js builds (`pdf.min.mjs`, `pdf.worker.min.mjs` v4.0.379) for PDF attachment rendering — `pdf-loader.js` tries local first, falls back to CDN. Core letter PDF generation uses the custom canvas renderer, not external libraries.
 - **Authentication:** `auth.js` loads the Supabase JS client from CDN and calls `lookup_employee(p_account_code)` RPC. The login overlay blocks the form until authenticated. Session persists in localStorage; logout clears fields and re-shows the overlay.
 - **Page layout constants:** A4 = 210×297mm. Margins (mm): top 44, right 5, bottom 21, left 11. These are mirrored in both `pagination.js` (DOM) and `canvas-renderer.js` (PDF) — changes must be synchronized.
 

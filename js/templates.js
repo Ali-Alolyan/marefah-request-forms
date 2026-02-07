@@ -56,7 +56,7 @@ function renderLetterBlocks(state){
   to.textContent = EXECUTIVE_DIRECTOR;
   blocks.push(to);
 
-  blocks.push(paragraph('السلام عليكم ورحمة الله وبركاته، وبعد:'));
+  blocks.push(paragraphHtml('السلام عليكم ورحمة الله وبركاته، وبعد:'));
   const costCenterBlock = buildCostCenterBlock(state);
 
   if (state.type === 'custody'){
@@ -68,16 +68,16 @@ function renderLetterBlocks(state){
     } else {
       custodyDesc = 'للبرنامج المعني';
     }
-    blocks.push(paragraph(
+    blocks.push(paragraphHtml(
       `آمل من سعادتكم التكرم بالموافقة على صرف عهدة مالية ${custodyDesc}.`
     ));
 
     blocks.push(labelAndText('تفاصيل الطلب:', state.details));
 
     const amt = state.custodyAmount != null ? `${formatAmountArabic(state.custodyAmount)} ريال سعودي` : '—';
-    blocks.push(paragraph(`<span class="letterLabel">مبلغ العهدة المطلوب:</span> ${amt}`));
+    blocks.push(paragraphHtml(`<span class="letterLabel">مبلغ العهدة المطلوب:</span> ${amt}`));
 
-    blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،'));
+    blocks.push(paragraphHtml('شاكرين لسعادتكم حسن تعاونكم،'));
   }
 
   if (state.type === 'close_custody'){
@@ -89,7 +89,7 @@ function renderLetterBlocks(state){
     } else {
       closeDesc = 'الخاصة بالبرنامج المعني';
     }
-    blocks.push(paragraph(
+    blocks.push(paragraphHtml(
       `أرفع لسعادتكم طلب إغلاق عهدة مالية ${closeDesc}، وذلك بعد إتمام الصرف وفق التفاصيل أدناه.`
     ));
 
@@ -97,12 +97,12 @@ function renderLetterBlocks(state){
     const remaining = state.remainingAmount != null ? `${formatAmountArabic(state.remainingAmount)} ريال سعودي` : '—';
     const att = state.attachments != null ? formatNumberArabic(state.attachments) : '—';
 
-    blocks.push(paragraph(`<span class="letterLabel">المبلغ المستخدم:</span> ${used}`));
-    blocks.push(paragraph(`<span class="letterLabel">المبلغ المتبقي:</span> ${remaining}`));
-    blocks.push(paragraph(`<span class="letterLabel">عدد المشفوعات:</span> ${att}`));
+    blocks.push(paragraphHtml(`<span class="letterLabel">المبلغ المستخدم:</span> ${used}`));
+    blocks.push(paragraphHtml(`<span class="letterLabel">المبلغ المتبقي:</span> ${remaining}`));
+    blocks.push(paragraphHtml(`<span class="letterLabel">عدد المشفوعات:</span> ${att}`));
 
-    blocks.push(paragraph('وسيتم إرفاق المشفوعات الداعمة (الفواتير/المستندات) ضمن إجراءات الإغلاق لدى الإدارة المختصة.'));
-    blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،'));
+    blocks.push(paragraphHtml('وسيتم إرفاق المشفوعات الداعمة (الفواتير/المستندات) ضمن إجراءات الإغلاق لدى الإدارة المختصة.'));
+    blocks.push(paragraphHtml('شاكرين لسعادتكم حسن تعاونكم،'));
   }
 
   if (state.type === 'general_financial'){
@@ -116,9 +116,9 @@ function renderLetterBlocks(state){
     }
 
     const amount = state.financialAmount != null ? `${formatAmountArabic(state.financialAmount)} ريال سعودي` : '—';
-    blocks.push(paragraph(`<span class="letterLabel">المبلغ المطلوب:</span> ${amount}`));
+    blocks.push(paragraphHtml(`<span class="letterLabel">المبلغ المطلوب:</span> ${amount}`));
 
-    blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،'));
+    blocks.push(paragraphHtml('شاكرين لسعادتكم حسن تعاونكم،'));
   }
 
   if (state.type === 'general'){
@@ -130,7 +130,7 @@ function renderLetterBlocks(state){
       placeholder.textContent = 'تفاصيل الخطاب';
       blocks.push(placeholder);
     }
-    blocks.push(paragraph('شاكرين لسعادتكم حسن تعاونكم،'));
+    blocks.push(paragraphHtml('شاكرين لسعادتكم حسن تعاونكم،'));
   }
 
   if (costCenterBlock) {
@@ -141,7 +141,7 @@ function renderLetterBlocks(state){
   return blocks;
 }
 
-function paragraph(htmlOrText){
+function paragraphHtml(htmlOrText){
   const p = document.createElement('div');
   p.className = 'letterPara';
   p.innerHTML = htmlOrText;
