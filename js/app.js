@@ -687,7 +687,9 @@ async function _handleAttachmentFilesInner(fileList){
         console.warn('Failed to get PDF page count:', e);
         // Keep accepting the file even if page parsing fails; export may still work later.
         pageCount = 1;
-        showToast(`تعذر قراءة صفحات PDF "${file.name}" وسيُعامل كصفحة واحدة`, 'error');
+        const source = window.getPdfJsStatus ? (window.getPdfJsStatus()?.source || '') : '';
+        const sourceNote = source ? ` (المصدر: ${source})` : '';
+        showToast(`تعذر قراءة صفحات PDF "${file.name}" وسيُعامل كصفحة واحدة${sourceNote}`, 'error');
       }
     }
 
@@ -739,10 +741,10 @@ async function getPdfPageCount(file){
   }
 
   const pdfjsLib = await window.loadPdfJs();
-  const arrayBuffer = await file.arrayBuffer();
+  const data = new Uint8Array(await file.arrayBuffer());
   const init = window.getPdfDocumentInit
-    ? window.getPdfDocumentInit(arrayBuffer)
-    : { data: arrayBuffer, disableWorker: true };
+    ? window.getPdfDocumentInit(data)
+    : { data, disableWorker: true };
   const pdf = await pdfjsLib.getDocument(init).promise;
   const pageCount = pdf.numPages;
   pdf.destroy();
@@ -816,10 +818,10 @@ async function generatePdfThumbnail(file){
   }
 
   const pdfjsLib = await window.loadPdfJs();
-  const arrayBuffer = await file.arrayBuffer();
+  const data = new Uint8Array(await file.arrayBuffer());
   const init = window.getPdfDocumentInit
-    ? window.getPdfDocumentInit(arrayBuffer)
-    : { data: arrayBuffer, disableWorker: true };
+    ? window.getPdfDocumentInit(data)
+    : { data, disableWorker: true };
   const pdf = await pdfjsLib.getDocument(init).promise;
 
   if (pdf.numPages < 1){

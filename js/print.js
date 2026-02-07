@@ -148,10 +148,10 @@
     }
 
     const pdfjsLib = await window.loadPdfJs();
-    const arrayBuffer = await file.arrayBuffer();
+    const data = new Uint8Array(await file.arrayBuffer());
     const init = window.getPdfDocumentInit
-      ? window.getPdfDocumentInit(arrayBuffer)
-      : { data: arrayBuffer, disableWorker: true };
+      ? window.getPdfDocumentInit(data)
+      : { data, disableWorker: true };
     const pdf = await pdfjsLib.getDocument(init).promise;
     const maxAttachmentPages = 80; // Safety limit
     if (pdf.numPages > maxAttachmentPages){
@@ -211,12 +211,13 @@
    */
   async function processAttachments(attachmentFiles, dpi, pages){
     if (!attachmentFiles || attachmentFiles.length === 0){
-      return 0;
+      return { renderedPages: 0, failedAttachments: [] };
     }
 
     const targetW = A4_PX[dpi]?.w || A4_PX[300].w;
     const targetH = A4_PX[dpi]?.h || A4_PX[300].h;
     let renderedPages = 0;
+    const failedAttachments = [];
 
     // Process files sequentially to manage memory on iOS
     for (const attachment of attachmentFiles){
@@ -236,11 +237,15 @@
         }
       } catch (e) {
         console.warn(`Failed to process attachment "${attachment.name}":`, e);
+        failedAttachments.push({
+          name: attachment?.name || 'attachment',
+          reason: e?.message || 'unknown_error'
+        });
         // Continue with other attachments
       }
     }
 
-    return renderedPages;
+    return { renderedPages, failedAttachments };
   }
 
   async function exportPDF(){
@@ -308,10 +313,13 @@
 
       // Process attachment files if any
       let attachmentPages = 0;
+      let failedAttachments = [];
       if (state.attachmentFiles && state.attachmentFiles.length > 0){
         console.log(`[PDF] processing ${state.attachmentFiles.length} attachment(s)…`);
         try {
-          attachmentPages = await processAttachments(state.attachmentFiles, usedDpi, pages);
+          const attachmentResult = await processAttachments(state.attachmentFiles, usedDpi, pages);
+          attachmentPages = attachmentResult.renderedPages || 0;
+          failedAttachments = attachmentResult.failedAttachments || [];
           console.log(`[PDF] ${attachmentPages} attachment page(s) rendered`);
         } catch (e) {
           console.warn('[PDF] attachment processing failed:', e);
@@ -326,6 +334,11 @@
 
       const attachmentNote = attachmentPages > 0 ? ` (مع ${attachmentPages} صفحة مرفقات)` : '';
       toast('تم تجهيز ملف PDF' + attachmentNote);
+      if (failedAttachments.length){
+        const failedList = failedAttachments.slice(0, 3).map(a => `"${a.name}"`).join('، ');
+        const suffix = failedAttachments.length > 3 ? '...' : '';
+        toast(`لم تتم إضافة بعض المرفقات: ${failedList}${suffix}`, 'error');
+      }
     }catch(err){
       console.error('[PDF] export failed:', err);
       const detail = err?.message || '';
