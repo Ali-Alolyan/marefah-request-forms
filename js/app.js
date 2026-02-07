@@ -72,6 +72,27 @@ const MAX_ATTACHMENT_FILES = 20;
 const MAX_ATTACHMENT_TOTAL_PAGES = 80;
 const MAX_ATTACHMENT_TOTAL_SIZE = 100 * 1024 * 1024; // 100 MB
 
+function normalizeAttachmentType(file){
+  const mime = String(file?.type || '').trim().toLowerCase();
+  const name = String(file?.name || '').trim().toLowerCase();
+  const ext = name.includes('.') ? name.split('.').pop() : '';
+
+  if (mime === 'application/pdf' || mime === 'application/x-pdf' || ext === 'pdf') {
+    return 'application/pdf';
+  }
+  if (mime === 'image/png' || ext === 'png') {
+    return 'image/png';
+  }
+  if (mime === 'image/jpeg' || mime === 'image/jpg' || ext === 'jpg' || ext === 'jpeg') {
+    return 'image/jpeg';
+  }
+  if (mime === 'image/webp' || ext === 'webp') {
+    return 'image/webp';
+  }
+
+  return '';
+}
+
 const WATCH_IDS = [
   'letterType','projectName',
   'applicantName','jobTitle','subject','details',
@@ -627,7 +648,8 @@ async function _handleAttachmentFilesInner(fileList){
     }
 
     // Validate type
-    if (!ALLOWED_ATTACHMENT_TYPES.includes(file.type)){
+    const normalizedType = normalizeAttachmentType(file);
+    if (!normalizedType || !ALLOWED_ATTACHMENT_TYPES.includes(normalizedType)){
       skippedCount++;
       continue;
     }
@@ -658,14 +680,14 @@ async function _handleAttachmentFilesInner(fileList){
 
     // Get page count for PDFs
     let pageCount = 1;
-    if (file.type === 'application/pdf'){
+    if (normalizedType === 'application/pdf'){
       try {
         pageCount = await getPdfPageCount(file);
       } catch (e) {
         console.warn('Failed to get PDF page count:', e);
-        showToast(`تعذر قراءة ملف PDF "${file.name}"`, 'error');
-        skippedCount++;
-        continue;
+        // Keep accepting the file even if page parsing fails; export may still work later.
+        pageCount = 1;
+        showToast(`تعذر قراءة صفحات PDF "${file.name}" وسيُعامل كصفحة واحدة`, 'error');
       }
     }
 
@@ -683,7 +705,7 @@ async function _handleAttachmentFilesInner(fileList){
     attachmentFiles.push({
       file,
       name: file.name,
-      type: file.type,
+      type: normalizedType,
       size: file.size,
       pageCount,
       thumbnail: null // Will be generated

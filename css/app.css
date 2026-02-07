@@ -625,6 +625,8 @@ body{
   font-size: 14px;
   line-height: 1.9;
   color: #0f172a;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   overflow: hidden;
 }
 

@@ -508,6 +508,10 @@
       ctx.fillText(`صفحة ${i+1} من ${totalPages}`, pnX, pnY);
 
       // Content ops
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(layout.contentLeft, layout.contentTop, layout.contentW, layout.contentBottom - layout.contentTop);
+      ctx.clip();
       for (const op of pagesOps[i]){
         if (op.op === 'text'){
           const st = op.style || {};
@@ -559,6 +563,7 @@
           ctx.restore();
         }
       }
+      ctx.restore();
 
       canvases.push(c);
     }

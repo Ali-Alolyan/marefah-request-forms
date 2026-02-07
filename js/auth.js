@@ -55,6 +55,21 @@
       .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0));
   }
 
+  function buildApplicantDisplayName(fullName, academicTitle) {
+    const name = toCleanString(fullName);
+    const title = toCleanString(academicTitle);
+    if (!name || !title) return name;
+
+    // Avoid duplicate prefix if the backend already includes the academic title in full_name.
+    const normalizedName = name.replace(/\s+/g, ' ');
+    const normalizedTitle = title.replace(/\s+/g, ' ');
+    if (normalizedName === normalizedTitle || normalizedName.startsWith(normalizedTitle + ' ')) {
+      return name;
+    }
+
+    return `${title} ${name}`;
+  }
+
   function bindRefreshForField(node) {
     if (!node || node.dataset.refreshBound === '1') return;
     const trigger = function () {
@@ -181,6 +196,7 @@
     const fullName = firstNonEmptyFromRows(rows, ['full_name', 'employee_name', 'name']);
     const jobTitle = firstNonEmptyFromRows(rows, ['job_title', 'title', 'position']);
     const jobTitleSecondary = firstNonEmptyFromRows(rows, ['job_title_secondary', 'secondary_job_title', 'title_secondary']) || null;
+    const academicTitle = firstNonEmptyFromRows(rows, ['academic_title', 'academicTitle']) || null;
 
     let projects = normalizeProjects(
       head.projects ?? head.employee_projects ?? head.assigned_projects ?? head.user_projects
@@ -201,6 +217,7 @@
       full_name: fullName,
       job_title: jobTitle,
       job_title_secondary: jobTitleSecondary,
+      academic_title: academicTitle,
       projects
     };
   }
@@ -332,7 +349,10 @@
 
   function applySession(session) {
     const nameEl = document.getElementById('applicantName');
-    if (nameEl) { nameEl.value = session.full_name; nameEl.readOnly = true; }
+    if (nameEl) {
+      nameEl.value = buildApplicantDisplayName(session.full_name, session.academic_title);
+      nameEl.readOnly = true;
+    }
 
     // Job title: if secondary title exists, replace input with a select dropdown
     var titleContainer = document.getElementById('jobTitle');
@@ -415,6 +435,7 @@
       full_name: normalized.full_name,
       job_title: normalized.job_title,
       job_title_secondary: normalized.job_title_secondary || null,
+      academic_title: normalized.academic_title || null,
       projects: normalized.projects
     };
   }
