@@ -322,6 +322,7 @@ function buildProjectDropdown(){
     opt.dataset.programName = p.program_name;
     opt.dataset.projectName = p.project_name;
     opt.dataset.portfolioName = p.portfolio_name;
+    opt.dataset.ppp = p.ppp != null ? String(p.ppp) : '';
     sel.appendChild(opt);
   });
 
@@ -1032,12 +1033,12 @@ function computeCostCenter(){
 
   // For custom letters we hide cost center entirely.
   if (type === 'general'){
-    return { costCenter: '', programNameAr: '', pfName: '', projectName: '' };
+    return { costCenter: '', programNameAr: '', pfName: '', projectName: '', ppp: '' };
   }
 
   // For general financial letters, showing cost center is optional.
   if (isGeneralFinancialType(type) && !includeCostCenter){
-    return { costCenter: '', programNameAr: '', pfName: '', projectName: '' };
+    return { costCenter: '', programNameAr: '', pfName: '', projectName: '', ppp: '' };
   }
 
   var sel = el('projectName');
@@ -1046,7 +1047,10 @@ function computeCostCenter(){
   var programNameAr = (opt && opt.dataset.programName) || '';
   var pfName = (opt && opt.dataset.portfolioName) || '';
   var projectName = (opt && opt.dataset.projectName) || '';
-  return { costCenter, programNameAr, pfName, projectName };
+  var ppp = (opt && opt.dataset.ppp) || '';
+  var projectId = sel ? parseInt(sel.value, 10) : NaN;
+  projectId = Number.isFinite(projectId) ? projectId : null;
+  return { costCenter, programNameAr, pfName, projectName, ppp, projectId };
 }
 
 function computeDates(){
@@ -1128,9 +1132,11 @@ function collectState(){
     attachmentsText,
     attachmentFiles: attachmentFiles.slice(),
     projectName: cc.projectName || '',
+    projectId: cc.projectId || null,
     costCenter: cc.costCenter || '',
     programNameAr: cc.programNameAr || '',
     pfName: cc.pfName || '',
+    trackingCode: (cc.costCenter && cc.ppp) ? cc.costCenter + '-' + String(dates.dateISO || '').slice(2, 4) + '-' + String(cc.ppp).padStart(3, '0') : '',
     ...dates
   };
 }

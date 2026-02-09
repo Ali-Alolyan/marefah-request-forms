@@ -189,6 +189,9 @@
       const program = state.programNameAr ? ` | البرنامج: ${state.programNameAr}` : '';
       const project = state.projectName ? ` | المشروع: ${state.projectName}` : '';
       blocks.push({ kind: 'para', label: 'مركز التكلفة:', text: `${cc}${program}${project}`, ltrLabelValue: true });
+      if (state.trackingCode) {
+        blocks.push({ kind: 'para', label: 'كود التتبع:', text: ltrWrap(state.trackingCode), ltrLabelValue: true });
+      }
     }
 
     blocks.push({ kind: 'signature', applicantName: state.applicantName || '', jobTitle: state.jobTitle || '', signatureDataUrl: state.signatureDataUrl || null });

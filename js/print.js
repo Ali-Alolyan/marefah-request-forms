@@ -336,6 +336,42 @@
       const filename = `خطاب-${(state.subject || 'document').slice(0,24).replace(/\s+/g,'_')}.pdf`;
       downloadBlob(blob, filename);
 
+      // Fire-and-forget: record letter audit trail
+      try {
+        const sb = window.getSupabaseClient && window.getSupabaseClient();
+        const session = window.authSession;
+        if (sb && session && session.account_code) {
+          const amount = state.type === 'custody' ? state.custodyAmount
+            : state.type === 'general_financial' ? state.financialAmount
+            : null;
+          sb.rpc('record_letter', {
+            p_account_code: Number(session.account_code),
+            p_letter_type: state.type,
+            p_subject: state.subject || '',
+            p_details: state.details || '',
+            p_cost_center: state.costCenter || '',
+            p_tracking_code: state.trackingCode || '',
+            p_amount: amount,
+            p_used_amount: state.type === 'close_custody' ? state.usedAmount : null,
+            p_remaining_amount: state.type === 'close_custody' ? state.remainingAmount : null,
+            p_attachment_count: state.attachments || 0,
+            p_date_iso: state.dateISO || null,
+            p_date_hijri: state.dateHijri || '',
+            p_date_gregorian: state.dateGregorian || '',
+            p_has_signature: !!state.signatureDataUrl,
+            p_project_id: state.projectId || null,
+            p_client_fingerprint: [navigator.userAgent, screen.width, screen.height].join('|')
+          }).then(function(res) {
+            if (res.error) console.warn('[audit] record_letter failed:', res.error.message);
+            else console.log('[audit] letter recorded:', res.data);
+          }).catch(function(err) {
+            console.warn('[audit] record_letter error:', err);
+          });
+        }
+      } catch (_auditErr) {
+        // Audit failure must never block PDF download
+      }
+
       const attachmentNote = attachmentPages > 0 ? ` (مع ${attachmentPages} صفحة مرفقات)` : '';
       toast('تم تجهيز ملف PDF' + attachmentNote);
       if (failedAttachments.length){

@@ -26,6 +26,9 @@ function buildCostCenterBlock(state){
   if (state.projectName) {
     ccHtml += `&nbsp;&nbsp;|&nbsp;&nbsp;<span class="letterLabel">المشروع:</span> ${escapeHtml(state.projectName)}`;
   }
+  if (state.trackingCode) {
+    ccHtml += `<br><span class="letterLabel">كود التتبع:</span> <span class="inlineCode" dir="ltr">${escapeHtml(state.trackingCode)}</span>`;
+  }
   cc.innerHTML = ccHtml;
   return cc;
 }

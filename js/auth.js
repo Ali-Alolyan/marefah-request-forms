@@ -125,6 +125,7 @@
       row.portfolio?.portfolio_name ??
       row.portfolio?.name
     );
+    const ppp = row.ppp ?? row.project?.ppp ?? null;
 
     if (!projectId && !projectName && !programName && !costCenter && !portfolioName) {
       return null;
@@ -135,7 +136,8 @@
       project_name: projectName,
       program_name: programName,
       cost_center: costCenter,
-      portfolio_name: portfolioName
+      portfolio_name: portfolioName,
+      ppp: ppp != null ? Number(ppp) : null
     };
   }
 
@@ -183,6 +185,19 @@
     return [];
   }
 
+  function normalizeRoles(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.filter(function(r) {
+      return r && typeof r === 'object' && r.role_code;
+    }).map(function(r) {
+      return {
+        role_code: toCleanString(r.role_code),
+        scope_type: toCleanString(r.scope_type),
+        scope_id: r.scope_id != null ? Number(r.scope_id) : null
+      };
+    });
+  }
+
   function normalizeLookupPayload(data) {
     let rows = [];
     if (Array.isArray(data)) {
@@ -213,12 +228,15 @@
       if (single) projects = [single];
     }
 
+    const roles = normalizeRoles(head.roles);
+
     return {
       full_name: fullName,
       job_title: jobTitle,
       job_title_secondary: jobTitleSecondary,
       academic_title: academicTitle,
-      projects
+      projects,
+      roles
     };
   }
 
@@ -436,7 +454,8 @@
       job_title: normalized.job_title,
       job_title_secondary: normalized.job_title_secondary || null,
       academic_title: normalized.academic_title || null,
-      projects: normalized.projects
+      projects: normalized.projects,
+      roles: normalized.roles || []
     };
   }
 
@@ -545,6 +564,9 @@
 
   window.authLogout = logout;
   window.authApplySession = applySession;
+
+  // Expose Supabase client for fire-and-forget audit calls (e.g., record_letter in print.js)
+  window.getSupabaseClient = function () { return supabase; };
 
   /* ---- Init on DOM ready ---- */
 
