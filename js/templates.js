@@ -7,7 +7,7 @@ const EXECUTIVE_DIRECTOR = 'سعادة المدير التنفيذي/ أ.د. م�
 
 function shouldShowCostCenterLine(state){
   if (state.type === 'custody' || state.type === 'close_custody') return true;
-  if (state.type === 'general_financial') {
+  if (state.type === 'general_financial' || state.type === 'general') {
     return !!state.financialIncludeCostCenter && !!(state.costCenter || state.programNameAr || state.projectName);
   }
   return false;
@@ -60,6 +60,7 @@ function renderLetterBlocks(state){
   blocks.push(to);
 
   blocks.push(paragraphHtml('السلام عليكم ورحمة الله وبركاته، وبعد:'));
+  appendDetailsBlock(blocks, state);
   const costCenterBlock = buildCostCenterBlock(state);
 
   if (state.type === 'custody'){
@@ -74,8 +75,6 @@ function renderLetterBlocks(state){
     blocks.push(paragraphHtml(
       `آمل من سعادتكم التكرم بالموافقة على صرف عهدة مالية ${custodyDesc}.`
     ));
-
-    blocks.push(labelAndText('تفاصيل الطلب:', state.details));
 
     const amt = state.custodyAmount != null ? `${formatAmountArabic(state.custodyAmount)} ريال سعودي` : '—';
     blocks.push(paragraphHtml(`<span class="letterLabel">مبلغ العهدة المطلوب:</span> ${amt}`));
@@ -109,15 +108,6 @@ function renderLetterBlocks(state){
   }
 
   if (state.type === 'general_financial'){
-    if (state.details) {
-      blocks.push(labelAndText('تفاصيل الخطاب:', state.details));
-    } else {
-      const placeholder = document.createElement('div');
-      placeholder.className = 'letterPara sigMetaRow--placeholder';
-      placeholder.textContent = 'تفاصيل الخطاب';
-      blocks.push(placeholder);
-    }
-
     const amount = state.financialAmount != null ? `${formatAmountArabic(state.financialAmount)} ريال سعودي` : '—';
     blocks.push(paragraphHtml(`<span class="letterLabel">المبلغ المطلوب:</span> ${amount}`));
 
@@ -125,14 +115,6 @@ function renderLetterBlocks(state){
   }
 
   if (state.type === 'general'){
-    if (state.details) {
-      blocks.push(labelAndText('تفاصيل الخطاب:', state.details));
-    } else {
-      const placeholder = document.createElement('div');
-      placeholder.className = 'letterPara sigMetaRow--placeholder';
-      placeholder.textContent = 'تفاصيل الخطاب';
-      blocks.push(placeholder);
-    }
     blocks.push(paragraphHtml('شاكرين لسعادتكم حسن تعاونكم،'));
   }
 
@@ -142,6 +124,20 @@ function renderLetterBlocks(state){
 
   blocks.push(signatureBlock(state));
   return blocks;
+}
+
+function appendDetailsBlock(blocks, state){
+  if (state.details) {
+    blocks.push(labelAndText('', state.details));
+    return;
+  }
+
+  if (state.type === 'general' || state.type === 'general_financial') {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'letterPara sigMetaRow--placeholder';
+    placeholder.textContent = 'تفاصيل الطلب';
+    blocks.push(placeholder);
+  }
 }
 
 function paragraphHtml(htmlOrText){

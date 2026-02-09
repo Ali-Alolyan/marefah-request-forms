@@ -118,6 +118,7 @@
     blocks.push({ kind: 'title', text: state.subject || '' });
     blocks.push({ kind: 'to', text: EXECUTIVE_DIRECTOR });
     blocks.push({ kind: 'para', text: 'السلام عليكم ورحمة الله وبركاته، وبعد:' });
+    pushDetailsBlock(blocks, state, type);
 
     if (type === 'custody'){
       let custodyDesc;
@@ -129,7 +130,6 @@
         custodyDesc = 'للبرنامج المعني';
       }
       blocks.push({ kind: 'para', text: `آمل من سعادتكم التكرم بالموافقة على صرف عهدة مالية ${custodyDesc}.` });
-      if (state.details) blocks.push({ kind: 'labeltext', label: 'تفاصيل الطلب:', text: state.details });
 
       const amt = ensureNumber(state.custodyAmount);
       const amtTxt = amt != null ? `${formatAmountArabic(amt)} ريال سعودي` : '—';
@@ -159,12 +159,6 @@
     }
 
     if (type === 'general_financial'){
-      if (state.details) {
-        blocks.push({ kind: 'labeltext', label: 'تفاصيل الخطاب:', text: state.details });
-      } else {
-        blocks.push({ kind: 'placeholder', text: 'تفاصيل الخطاب' });
-      }
-
       const amount = ensureNumber(state.financialAmount);
       const amountText = amount != null ? `${formatAmountArabic(amount)} ريال سعودي` : '—';
       blocks.push({ kind: 'para', label: 'المبلغ المطلوب:', text: amountText });
@@ -172,18 +166,13 @@
     }
 
     if (type === 'general'){
-      if (state.details) {
-        blocks.push({ kind: 'labeltext', label: 'تفاصيل الخطاب:', text: state.details });
-      } else {
-        blocks.push({ kind: 'placeholder', text: 'تفاصيل الخطاب' });
-      }
       blocks.push({ kind: 'para', text: 'شاكرين لسعادتكم حسن تعاونكم،' });
     }
 
     const shouldShowCostCenterLine =
       type === 'custody' ||
       type === 'close_custody' ||
-      (type === 'general_financial' && !!state.financialIncludeCostCenter && !!(state.costCenter || state.programNameAr || state.projectName));
+      ((type === 'general_financial' || type === 'general') && !!state.financialIncludeCostCenter && !!(state.costCenter || state.programNameAr || state.projectName));
     if (shouldShowCostCenterLine){
       const cc = state.costCenter ? ltrWrap(state.costCenter) : '—';
       const program = state.programNameAr ? ` | البرنامج: ${state.programNameAr}` : '';
@@ -196,6 +185,17 @@
 
     blocks.push({ kind: 'signature', applicantName: state.applicantName || '', jobTitle: state.jobTitle || '', signatureDataUrl: state.signatureDataUrl || null });
     return blocks;
+  }
+
+  function pushDetailsBlock(blocks, state, type){
+    if (state.details) {
+      blocks.push({ kind: 'plaintext', text: state.details });
+      return;
+    }
+
+    if (type === 'general' || type === 'general_financial') {
+      blocks.push({ kind: 'placeholder', text: 'تفاصيل الطلب' });
+    }
   }
 
   function paginate(blocks, layout){

@@ -1031,13 +1031,8 @@ function computeCostCenter(){
   var type = getAllowedLetterType();
   var includeCostCenter = !!el('financialIncludeCostCenter')?.checked;
 
-  // For custom letters we hide cost center entirely.
-  if (type === 'general'){
-    return { costCenter: '', programNameAr: '', pfName: '', projectName: '', ppp: '' };
-  }
-
-  // For general financial letters, showing cost center is optional.
-  if (isGeneralFinancialType(type) && !includeCostCenter){
+  // For custom/general financial letters, showing project + cost center is optional.
+  if ((type === 'general' || isGeneralFinancialType(type)) && !includeCostCenter){
     return { costCenter: '', programNameAr: '', pfName: '', projectName: '', ppp: '' };
   }
 
@@ -1335,20 +1330,20 @@ function applyLetterTypeUI(){
     type = 'general';
   }
 
-  const showFinancialToggle = isGeneralFinancialType(type) && hasProjects;
-  if (!showFinancialToggle && costToggleCheckbox) {
+  const showOptionalCostCenterToggle = (type === 'general' || isGeneralFinancialType(type)) && hasProjects;
+  if (!showOptionalCostCenterToggle && costToggleCheckbox) {
     costToggleCheckbox.checked = false;
   }
 
-  const showProjectFields = type === 'custody' || type === 'close_custody' || (showFinancialToggle && !!costToggleCheckbox?.checked);
-  const showCostSection = type === 'custody' || type === 'close_custody' || showFinancialToggle;
+  const showProjectFields = type === 'custody' || type === 'close_custody' || (showOptionalCostCenterToggle && !!costToggleCheckbox?.checked);
+  const showCostSection = type === 'custody' || type === 'close_custody' || showOptionalCostCenterToggle;
 
   if (costSection){
     toggleAnimated(costSection, showCostSection);
   }
 
   if (costToggleWrap){
-    toggleAnimated(costToggleWrap, showFinancialToggle);
+    toggleAnimated(costToggleWrap, showOptionalCostCenterToggle);
   }
 
   if (projectFieldsWrap){
