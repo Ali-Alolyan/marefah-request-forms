@@ -392,6 +392,21 @@
   <!-- PDF export libs are loaded on-demand (see js/print.js) to improve reliability on iOS -->
 
 
+  <!-- Drafts modal -->
+  <div id="draftsModal" class="drafts-overlay" role="dialog" aria-modal="true" aria-label="إدارة المسودات">
+    <div class="drafts-card">
+      <div class="drafts-card__header">
+        <span class="drafts-card__title">المسودات المحفوظة <small id="draftsCount"></small></span>
+        <button class="drafts-card__close" id="draftsModalClose" type="button" aria-label="إغلاق">&times;</button>
+      </div>
+      <div class="drafts-card__subtitle" id="draftsSubtitle"></div>
+      <div class="drafts-card__list" id="draftsList"></div>
+      <div class="drafts-card__actions">
+        <button class="btn btn--primary" id="draftsNewBtn" type="button">حفظ كمسودة جديدة</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Export progress overlay -->
   <div id="exportSpinner" class="export-spinner" role="status" aria-live="polite" aria-label="جاري تجهيز ملف PDF">
     <div class="export-spinner__card">

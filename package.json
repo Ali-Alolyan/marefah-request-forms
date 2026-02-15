@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "name": "marefah-letter-tool",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ci": "vitest run --reporter=verbose",
+    "lint": "eslint js/"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.0.0",
+    "vitest": "^3.0.0"
+  }
+}

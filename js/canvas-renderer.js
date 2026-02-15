@@ -598,4 +598,8 @@
   // Expose for print.js
   window.renderLetterToCanvases = renderLetterToCanvases;
 
+  // Test exports
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { mmToPx, cssPxToMm, sanitizeText };
+  }
 })();

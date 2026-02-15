@@ -139,3 +139,7 @@ function escapeHtml(str){
     .replaceAll('"','&quot;')
     .replaceAll("'","&#039;");
 }
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { clampInt, padLeft, formatNumberArabic, formatAmountArabic, parseAmount, toLocalISODate, parseISOToLocalDate, escapeHtml };
+}

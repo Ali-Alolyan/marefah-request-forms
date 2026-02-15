@@ -1,7 +1,19 @@
 /* Main app (v3) */
 
-const DRAFT_KEY_PREFIX = 'marefah-letter-draft-v5';
+/* -------------------------------------------------------
+   Multi-Draft Storage (v6) — up to 5 named drafts per user
+-------------------------------------------------------- */
+const DRAFTS_KEY_PREFIX = 'marefah-letter-drafts-v6';
+const LEGACY_DRAFT_KEY_V5 = 'marefah-letter-draft-v5';
 const LEGACY_DRAFT_KEYS = ['marefah-letter-draft-v4'];
+const MAX_DRAFTS = 5;
+
+const DRAFT_TYPE_LABELS = {
+  general: 'خطاب عام',
+  general_financial: 'خطاب مالي',
+  custody: 'طلب عهدة',
+  close_custody: 'إقفال عهدة',
+};
 
 function normalizeDraftAccountCode(accountCode){
   const normalized = String(accountCode ?? window.authSession?.account_code ?? '')
@@ -10,26 +22,348 @@ function normalizeDraftAccountCode(accountCode){
   return normalized || 'anonymous';
 }
 
-function getDraftStorageKey(accountCode){
-  return `${DRAFT_KEY_PREFIX}:${normalizeDraftAccountCode(accountCode)}`;
+function getDraftsStorageKey(accountCode){
+  return `${DRAFTS_KEY_PREFIX}:${normalizeDraftAccountCode(accountCode)}`;
 }
 
 function getLegacyDraftStorageKeys(accountCode){
   const normalized = normalizeDraftAccountCode(accountCode);
   const legacy = [];
-  LEGACY_DRAFT_KEYS.forEach((base) => {
+  [LEGACY_DRAFT_KEY_V5, ...LEGACY_DRAFT_KEYS].forEach((base) => {
     legacy.push(base);
     legacy.push(`${base}:${normalized}`);
   });
   return Array.from(new Set(legacy));
 }
 
-function clearDraftForAccount(accountCode){
+function getDraftsArray(accountCode){
+  const key = getDraftsStorageKey(accountCode);
+  const raw = localStorage.getItem(key);
+  if (raw) {
+    try { return JSON.parse(raw); } catch(_) { return []; }
+  }
+
+  // Migration: try v5 then v4 legacy keys
+  const legacyKeys = getLegacyDraftStorageKeys(accountCode);
+  for (const lk of legacyKeys) {
+    const legacy = localStorage.getItem(lk);
+    if (!legacy) continue;
+    try {
+      const state = JSON.parse(legacy);
+      const now = Date.now();
+      const migrated = [{
+        id: 'd_' + now,
+        name: 'مسودة سابقة',
+        createdAt: now,
+        updatedAt: now,
+        state: state
+      }];
+      setDraftsArray(accountCode, migrated);
+      // Remove old keys
+      legacyKeys.forEach(k => localStorage.removeItem(k));
+      return migrated;
+    } catch(_) {
+      localStorage.removeItem(lk);
+    }
+  }
+  return [];
+}
+
+function setDraftsArray(accountCode, arr){
+  const key = getDraftsStorageKey(accountCode);
+  try {
+    localStorage.setItem(key, JSON.stringify(arr));
+    return true;
+  } catch(e) {
+    console.warn('Failed to save drafts:', e);
+    return false;
+  }
+}
+
+function generateDraftName(type){
+  const label = DRAFT_TYPE_LABELS[type] || 'خطاب عام';
+  const now = new Date();
+  const day = now.getDate();
+  const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  const month = months[now.getMonth()];
+  let h = now.getHours();
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const ampm = h >= 12 ? 'م' : 'ص';
+  h = h % 12 || 12;
+  return `${label} - ${day} ${month} ${h}:${m}${ampm}`;
+}
+
+function formatRelativeTime(ts){
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'الآن';
+  if (mins < 60) return `منذ ${mins} دقيقة`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `منذ ${hours} ساعة`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `منذ ${days} يوم`;
+  const d = new Date(ts);
+  return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
+}
+
+function createDraft(){
+  const code = normalizeDraftAccountCode();
+  const drafts = getDraftsArray(code);
+  if (drafts.length >= MAX_DRAFTS) {
+    openDraftsModal();
+    return;
+  }
+  const state = collectState();
+  const safe = { ...state, signatureDataUrl: null, attachmentFiles: [] };
+  const now = Date.now();
+  drafts.push({
+    id: 'd_' + now,
+    name: generateDraftName(state.type),
+    createdAt: now,
+    updatedAt: now,
+    state: safe
+  });
+  if (setDraftsArray(code, drafts)) {
+    showToast('تم حفظ المسودة.', 'success');
+  } else {
+    showToast('تعذر حفظ المسودة بسبب امتلاء سعة التخزين في المتصفح.', 'error');
+  }
+}
+
+function loadDraftById(id){
+  const code = normalizeDraftAccountCode();
+  const drafts = getDraftsArray(code);
+  const draft = drafts.find(d => d.id === id);
+  if (!draft) {
+    showToast('لم يتم العثور على المسودة.', 'error');
+    return;
+  }
+  const hasData = String(el('subject')?.value || '').trim() || String(el('details')?.value || '').trim();
+  if (hasData && !confirm('سيتم استبدال البيانات الحالية بالمسودة المحفوظة. هل تريد المتابعة؟')) {
+    return;
+  }
+  restoreDraftState(draft.state);
+  closeDraftsModal();
+  showToast('تم استرجاع المسودة (يرجى إعادة التوقيع ورفع المرفقات).', 'success');
+}
+
+function overwriteDraft(id){
+  if (!confirm('سيتم استبدال محتوى المسودة ببيانات النموذج الحالي. هل تريد المتابعة؟')) return;
+  const code = normalizeDraftAccountCode();
+  const drafts = getDraftsArray(code);
+  const idx = drafts.findIndex(d => d.id === id);
+  if (idx === -1) return;
+  const state = collectState();
+  const safe = { ...state, signatureDataUrl: null, attachmentFiles: [] };
+  drafts[idx].state = safe;
+  drafts[idx].updatedAt = Date.now();
+  if (setDraftsArray(code, drafts)) {
+    showToast('تم تحديث المسودة.', 'success');
+    renderDraftsModal();
+  }
+}
+
+function renameDraft(id, newName){
+  const trimmed = String(newName || '').trim();
+  if (!trimmed) return;
+  const code = normalizeDraftAccountCode();
+  const drafts = getDraftsArray(code);
+  const draft = drafts.find(d => d.id === id);
+  if (!draft) return;
+  draft.name = trimmed;
+  setDraftsArray(code, drafts);
+  renderDraftsModal();
+}
+
+function deleteDraft(id){
+  if (!confirm('هل تريد حذف هذه المسودة؟')) return;
+  const code = normalizeDraftAccountCode();
+  const drafts = getDraftsArray(code).filter(d => d.id !== id);
+  setDraftsArray(code, drafts);
+  showToast('تم حذف المسودة.', 'success');
+  renderDraftsModal();
+}
+
+function clearAllDraftsForAccount(accountCode){
   const keys = new Set([
-    getDraftStorageKey(accountCode),
+    getDraftsStorageKey(accountCode),
     ...getLegacyDraftStorageKeys(accountCode),
   ]);
   keys.forEach((key) => localStorage.removeItem(key));
+}
+
+function restoreDraftState(state){
+  if (!state) return;
+  el('letterType').value = state.type || 'general';
+  clearAttachments();
+
+  if (state.projectName) {
+    var projSel = el('projectName');
+    if (projSel) {
+      var found = false;
+      Array.from(projSel.options).forEach(function(opt) {
+        if (opt.dataset.projectName === state.projectName) {
+          projSel.value = opt.value;
+          found = true;
+        }
+      });
+      if (found) updateFromProject();
+    }
+  }
+
+  if (!window.authSession) {
+    el('applicantName').value = state.applicantName || '';
+    el('jobTitle').value = state.jobTitle || '';
+  }
+  el('subject').value = state.subject || '';
+  el('details').value = state.details || '';
+
+  el('custodyAmount').value = state.custodyAmount ?? '';
+  el('financialAmount').value = state.financialAmount ?? '';
+  el('usedAmount').value = state.usedAmount ?? '';
+  el('remainingAmount').value = state.remainingAmount ?? '';
+  el('attachments').value = '';
+  el('attachmentsGeneral').value = '';
+  if (el('financialIncludeCostCenter')) {
+    el('financialIncludeCostCenter').checked = !!state.financialIncludeCostCenter;
+  }
+
+  if (state.dateISO) el('date').value = state.dateISO;
+  if (window.dualDatePicker){
+    const iso = el('date').value || toLocalISODate(new Date());
+    window.dualDatePicker.selectedDate = parseISOToLocalDate(iso) || new Date();
+    window.dualDatePicker.updateDisplay();
+  }
+
+  signatureDataUrl = null;
+  refresh();
+}
+
+/* -------------------------------------------------------
+   Drafts Modal UI
+-------------------------------------------------------- */
+function openDraftsModal(){
+  const modal = el('draftsModal');
+  if (!modal) return;
+  renderDraftsModal();
+  modal.classList.add('is-active');
+  document.addEventListener('keydown', draftsModalEscHandler);
+}
+
+function closeDraftsModal(){
+  const modal = el('draftsModal');
+  if (!modal) return;
+  modal.classList.remove('is-active');
+  document.removeEventListener('keydown', draftsModalEscHandler);
+}
+
+function draftsModalEscHandler(e){
+  if (e.key === 'Escape') closeDraftsModal();
+}
+
+function renderDraftsModal(){
+  const code = normalizeDraftAccountCode();
+  const drafts = getDraftsArray(code);
+  const list = el('draftsList');
+  const countEl = el('draftsCount');
+  const subtitle = el('draftsSubtitle');
+  const newBtn = el('draftsNewBtn');
+  if (!list) return;
+
+  countEl.textContent = `(${drafts.length}/${MAX_DRAFTS})`;
+
+  if (drafts.length === 0) {
+    subtitle.textContent = 'لا توجد مسودات محفوظة';
+    subtitle.style.display = 'block';
+    list.innerHTML = '';
+    newBtn.style.display = '';
+    newBtn.disabled = false;
+    return;
+  }
+
+  if (drafts.length >= MAX_DRAFTS) {
+    subtitle.textContent = 'بلغ الحد الأقصى (' + MAX_DRAFTS + '/' + MAX_DRAFTS + ')';
+    subtitle.style.display = 'block';
+    newBtn.style.display = 'none';
+  } else {
+    subtitle.textContent = '';
+    subtitle.style.display = 'none';
+    newBtn.style.display = '';
+    newBtn.disabled = false;
+  }
+
+  list.innerHTML = '';
+  // Show newest first
+  const sorted = drafts.slice().sort((a, b) => b.updatedAt - a.updatedAt);
+  sorted.forEach(draft => {
+    const item = document.createElement('div');
+    item.className = 'draft-item';
+    item.dataset.id = draft.id;
+
+    const info = document.createElement('div');
+    info.className = 'draft-item__info';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'draft-item__name';
+    nameEl.textContent = draft.name;
+    nameEl.title = 'انقر لإعادة التسمية';
+    nameEl.addEventListener('click', () => {
+      // Inline rename
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'draft-item__rename-input';
+      input.value = draft.name;
+      input.maxLength = 60;
+      nameEl.replaceWith(input);
+      input.focus();
+      input.select();
+      const finish = () => {
+        renameDraft(draft.id, input.value || draft.name);
+      };
+      input.addEventListener('blur', finish, { once: true });
+      input.addEventListener('keydown', (ke) => {
+        if (ke.key === 'Enter') { ke.preventDefault(); input.blur(); }
+        if (ke.key === 'Escape') { input.value = draft.name; input.blur(); }
+      });
+    });
+
+    const meta = document.createElement('div');
+    meta.className = 'draft-item__meta';
+    const typeLabel = DRAFT_TYPE_LABELS[draft.state?.type] || '';
+    meta.textContent = typeLabel + (typeLabel ? ' · ' : '') + formatRelativeTime(draft.updatedAt);
+
+    info.appendChild(nameEl);
+    info.appendChild(meta);
+
+    const actions = document.createElement('div');
+    actions.className = 'draft-item__actions';
+
+    const loadBtn = document.createElement('button');
+    loadBtn.type = 'button';
+    loadBtn.className = 'btn btn--ghost draft-item__btn';
+    loadBtn.textContent = 'استرجاع';
+    loadBtn.addEventListener('click', () => loadDraftById(draft.id));
+
+    const updateBtn = document.createElement('button');
+    updateBtn.type = 'button';
+    updateBtn.className = 'btn btn--ghost draft-item__btn';
+    updateBtn.textContent = 'تحديث';
+    updateBtn.addEventListener('click', () => overwriteDraft(draft.id));
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn btn--ghost draft-item__btn draft-item__btn--delete';
+    delBtn.textContent = 'حذف';
+    delBtn.addEventListener('click', () => deleteDraft(draft.id));
+
+    actions.appendChild(loadBtn);
+    actions.appendChild(updateBtn);
+    actions.appendChild(delBtn);
+
+    item.appendChild(info);
+    item.appendChild(actions);
+    list.appendChild(item);
+  });
 }
 
 /* -------------------------------------------------------
@@ -443,14 +777,27 @@ function bindUI(){
   });
 
   // Save/Load draft
-  el('btn-save').addEventListener('click', saveDraft);
-  el('btn-load').addEventListener('click', loadDraft);
+  el('btn-save').addEventListener('click', handleSaveDraft);
+  el('btn-load').addEventListener('click', handleLoadDraft);
 
   // Mobile/tablet save/load buttons
   const saveMobile = el('btn-save-mobile');
   const loadMobile = el('btn-load-mobile');
-  if (saveMobile) saveMobile.addEventListener('click', saveDraft);
-  if (loadMobile) loadMobile.addEventListener('click', loadDraft);
+  if (saveMobile) saveMobile.addEventListener('click', handleSaveDraft);
+  if (loadMobile) loadMobile.addEventListener('click', handleLoadDraft);
+
+  // Drafts modal controls
+  const draftsClose = el('draftsModalClose');
+  if (draftsClose) draftsClose.addEventListener('click', closeDraftsModal);
+  const draftsOverlay = el('draftsModal');
+  if (draftsOverlay) draftsOverlay.addEventListener('click', (e) => {
+    if (e.target === draftsOverlay) closeDraftsModal();
+  });
+  const draftsNewBtn = el('draftsNewBtn');
+  if (draftsNewBtn) draftsNewBtn.addEventListener('click', () => {
+    createDraft();
+    renderDraftsModal();
+  });
 
   // Export PDF (both buttons)
   const doExport = () => {
@@ -1189,120 +1536,18 @@ function applyResponsiveScale(){
   document.documentElement.style.setProperty('--page-scale', String(Number(scale.toFixed(4))));
 }
 
-function saveDraft(){
-  const state = collectState();
-  const storageKey = getDraftStorageKey();
-
-  // Store without binary/large data to avoid localStorage quota failures.
-  const safe = { ...state, signatureDataUrl: null, attachmentFiles: [] };
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(safe));
-    showToast('تم حفظ المسودة.', 'success');
-  } catch (e) {
-    console.warn('Failed to save draft:', e);
-    showToast('تعذر حفظ المسودة بسبب امتلاء سعة التخزين في المتصفح.', 'error');
-  }
+function handleSaveDraft(){
+  createDraft();
 }
 
-function loadDraft(){
-  const primaryKey = getDraftStorageKey();
-  let raw = localStorage.getItem(primaryKey);
-  let sourceKey = primaryKey;
-
-  if (!raw){
-    const legacyKeys = getLegacyDraftStorageKeys();
-    for (const key of legacyKeys){
-      if (key === primaryKey) continue;
-      const candidate = localStorage.getItem(key);
-      if (candidate){
-        raw = candidate;
-        sourceKey = key;
-        break;
-      }
-    }
-  }
-
-  if (!raw){
-    showToast('لا توجد مسودة محفوظة.', 'error');
+function handleLoadDraft(){
+  const code = normalizeDraftAccountCode();
+  const drafts = getDraftsArray(code);
+  if (!drafts.length) {
+    showToast('لا توجد مسودات محفوظة.', 'error');
     return;
   }
-  let state;
-  try { state = JSON.parse(raw); } catch(e){
-    // Issue 25: Corrupt draft — offer to clear
-    if (confirm('المسودة المحفوظة تالفة. هل تريد حذفها؟')) {
-      localStorage.removeItem(sourceKey);
-      showToast('تم حذف المسودة التالفة.', 'success');
-    }
-    return;
-  }
-
-  // Migrate legacy key to the user-scoped key.
-  if (sourceKey !== primaryKey) {
-    try {
-      localStorage.setItem(primaryKey, raw);
-      localStorage.removeItem(sourceKey);
-    } catch (_) {}
-  }
-
-  // Check if form has data — confirm before overwriting
-  const hasData = String(el('subject')?.value || '').trim() || String(el('details')?.value || '').trim();
-  if (hasData && !confirm('سيتم استبدال البيانات الحالية بالمسودة المحفوظة. هل تريد المتابعة؟')) {
-    return;
-  }
-
-  el('letterType').value = state.type || 'general';
-
-  // Drafts do not persist binary attachments, so clear any current in-memory files.
-  clearAttachments();
-
-  // Restore project selection if possible (match by project name)
-  if (state.projectName) {
-    var projSel = el('projectName');
-    if (projSel) {
-      var found = false;
-      Array.from(projSel.options).forEach(function(opt) {
-        if (opt.dataset.projectName === state.projectName) {
-          projSel.value = opt.value;
-          found = true;
-        }
-      });
-      if (found) updateFromProject();
-    }
-  }
-
-  // Skip restoring name/title if user is logged in (auth data takes priority)
-  if (!window.authSession) {
-    el('applicantName').value = state.applicantName || '';
-    el('jobTitle').value = state.jobTitle || '';
-  }
-  el('subject').value = state.subject || '';
-  el('details').value = state.details || '';
-
-  el('custodyAmount').value = state.custodyAmount ?? '';
-  el('financialAmount').value = state.financialAmount ?? '';
-  el('usedAmount').value = state.usedAmount ?? '';
-  el('remainingAmount').value = state.remainingAmount ?? '';
-  el('attachments').value = '';
-  el('attachmentsGeneral').value = '';
-  if (el('financialIncludeCostCenter')) {
-    el('financialIncludeCostCenter').checked = !!state.financialIncludeCostCenter;
-  }
-
-  // Date
-  if (state.dateISO){
-    el('date').value = state.dateISO;
-  }
-  if (window.dualDatePicker){
-    const iso = el('date').value || toLocalISODate(new Date());
-    window.dualDatePicker.selectedDate = parseISOToLocalDate(iso) || new Date();
-    window.dualDatePicker.updateDisplay();
-  }
-
-  // Signature: not restoring data URL (user re-adds)
-  signatureDataUrl = null;
-
-  showToast('تم استرجاع المسودة (يرجى إعادة التوقيع ورفع المرفقات).', 'success');
-  refresh();
+  openDraftsModal();
 }
 
 function applyLetterTypeUI(){
@@ -1452,7 +1697,7 @@ window.refresh = refresh;
 window.loadSessionProjects = loadSessionProjects;
 window.buildProjectDropdown = buildProjectDropdown;
 window.resetEditorState = resetEditorState;
-window.clearCurrentUserDraft = clearDraftForAccount;
+window.clearCurrentUserDraft = clearAllDraftsForAccount;
 window.syncSelectFieldStates = syncSelectFieldStates;
 window.rebindFormListeners = function(ids){
   if (Array.isArray(ids) && ids.length) {
@@ -1463,3 +1708,7 @@ window.rebindFormListeners = function(ids){
 };
 
 document.addEventListener('DOMContentLoaded', init);
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { typeNeedsProjects, isGeneralFinancialType, isAgreementRequiredType, normalizeAttachmentType };
+}

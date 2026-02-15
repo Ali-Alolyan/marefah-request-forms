@@ -324,3 +324,7 @@ class HijriConverter {
 
 // Create global instance
 const hijriConverter = new HijriConverter();
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { HijriConverter };
+}

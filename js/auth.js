@@ -624,6 +624,11 @@
     }
   }
 
+  // Test exports
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { normalizeAccountCode, buildApplicantDisplayName, computeSessionHash };
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initAuth);
   } else {

@@ -498,4 +498,8 @@
   // Expose
   window.exportPDF = exportPDF;
 
+  // Test exports
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { buildPdfFromJpegs, dataURLToBytes };
+  }
 })();

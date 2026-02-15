@@ -16,6 +16,12 @@ Thumbs.db
 # Packaging artifacts
 *.zip
 
+# Dependencies
+node_modules/
+
+# Test coverage
+coverage/
+
 # Sensitive data
 secure/
 .mcp.json

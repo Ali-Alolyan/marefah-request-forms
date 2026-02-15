@@ -168,6 +168,10 @@ function labelAndText(label, text){
   return wrap;
 }
 
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { shouldShowCostCenterLine, buildSubjectByType };
+}
+
 function signatureBlock(state){
   const block = document.createElement('div');
   block.className = 'sigBlock';
