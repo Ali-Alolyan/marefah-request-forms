@@ -648,6 +648,8 @@ body{
   font-size: 14px;
   line-height: 1.9;
   color: #0f172a;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   overflow-wrap: anywhere;
   word-break: break-word;
   overflow: hidden;
@@ -664,7 +666,13 @@ body{
   margin: 0 0 3mm 0;
   font-weight: 700;
 }
-.letterPara{ margin: 0 0 3mm 0; }
+.letterPara{
+  margin: 0 0 3mm 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .letterLabel{ font-weight: 800; }
 
 .inlineCode{

@@ -162,6 +162,9 @@ function labelAndText(label, text){
 
   const body = document.createElement('div');
   body.style.whiteSpace = 'pre-wrap';
+  body.style.overflowWrap = 'anywhere';
+  body.style.wordBreak = 'break-word';
+  body.setAttribute('data-splittable', 'true');
   body.textContent = text;
 
   wrap.appendChild(body);
